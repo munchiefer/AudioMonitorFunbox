@@ -4,6 +4,24 @@ A small Windows tray app for people who play, stream and chat at the same time.
 
 Designed and crafted by **munchiefer**; programmed by **Claude** (Anthropic's AI). See [Credits](#credits).
 
+## TL;DR
+
+| Feature | What it does, in one line |
+|---|---|
+| **Speaker copy** | Plays your PC's sound on a second device too, e.g. speakers and headphones at once. |
+| **Microphones** | Turns up to 4 mics/inputs into one mic for Discord (needs the free VB-CABLE driver). |
+| **Listen to VB-CABLE** | Lets you hear exactly what Discord hears from you. |
+| **Fun box** | Voice effects for Discord (chipmunk, radio, demon, ghost, echo, walkie-talkie and more). |
+| **Hotkeys** | One key turns the effects on/off, another plays them only while held, in any app or game. |
+| **Pedalboard** (AudioFunbox) | Your Rocksmith Real Tone cable through guitar pedals and an amp, to your speakers and Discord. |
+| **Tuner** (AudioFunbox) | Tunes guitar and bass, down to a 5-string's low B. |
+| **Device memory** | Remembers your devices, even unplugged, and picks them up again when you plug them back in. |
+
+Two editions: **AudioFunbox** (everything, for Real Tone cable players) and **AudioMonitor** (no Pedalboard).
+Free, no ads, no account, no internet needed.
+
+## What each part does
+
 - **Speaker copy**: play what your PC plays on two devices at once (for example speakers and headphones),
   with a delay slider to line them up and Windows' low-latency mode where the driver supports it.
   Copy everything, or only the apps you pick.
