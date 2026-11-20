@@ -120,7 +120,8 @@ sealed class AudioEngine : IDisposable
             {
                 if (e.Exception != null) Fault = $"{name} output stopped: {e.Exception.Message}";
             };
-            player.Init(volume);
+            try { player.Init(volume); }
+            catch { player.Dispose(); throw; }
             output = new Output
             {
                 Name = name, Player = player, Play = player.Play, PeriodMs = 10, QueuedMs = 22,

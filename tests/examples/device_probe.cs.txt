@@ -1,8 +1,8 @@
 // EXAMPLE (copy to ../mictest/Test.cs, adapt, run "dotnet run -c Release").
 // READ-ONLY diagnosis: which apps use which audio device, with Windows levels, mutes and live peaks.
 // Changes nothing: no volumes set, nothing captured or played, no settings touched.
-// This found two real problems in the past: Discord listening to a microphone directly instead of "CABLE Output",
-// and the app not running at all.
+// Handy for spotting e.g. a voice app listening to a microphone directly instead of "CABLE Output", or the app
+// not running at all.
 using System.Diagnostics;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
@@ -10,8 +10,9 @@ using NAudio.CoreAudioApi.Interfaces;
 var en = new MMDeviceEnumerator();
 string Name(int pid) { try { using var p = Process.GetProcessById(pid); return p.ProcessName; } catch { return "?"; } }
 
-Console.WriteLine("Audio Monitor / Rocksmith / Discord processes: " + string.Join(", ", Process.GetProcesses()
-    .Where(p => p.ProcessName.StartsWith("AudioMonitor", StringComparison.OrdinalIgnoreCase) || p.ProcessName.StartsWith("Rocksmith", StringComparison.OrdinalIgnoreCase)
+Console.WriteLine("AudioMonitor / AudioFunbox / Rocksmith / Discord processes: " + string.Join(", ", Process.GetProcesses()
+    .Where(p => p.ProcessName.StartsWith("AudioMonitor", StringComparison.OrdinalIgnoreCase) || p.ProcessName.StartsWith("AudioFunbox", StringComparison.OrdinalIgnoreCase)
+             || p.ProcessName.StartsWith("Rocksmith", StringComparison.OrdinalIgnoreCase)
              || p.ProcessName.StartsWith("Discord", StringComparison.OrdinalIgnoreCase))
     .Select(p => $"{p.ProcessName}({p.Id})")));
 

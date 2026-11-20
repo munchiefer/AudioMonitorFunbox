@@ -1,6 +1,6 @@
 ; Installer for AudioMonitor / AudioFunbox (Inno Setup 6).
 ; Build from the project root, after publishing both exes into "portable versions":
-;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=1.6.0 installer\AudioMonitorFunbox.iss
+;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=x.y.z installer\AudioMonitorFunbox.iss
 ;
 ; First run: pick AudioMonitor (simple) or AudioFunbox (full, with the Pedalboard).
 ; Run again with AudioMonitor installed:  Upgrade to the full version / Uninstall / Update AudioMonitor.

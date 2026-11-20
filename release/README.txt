@@ -1,4 +1,4 @@
-AudioFunbox and AudioMonitor 1.6.1
+AudioFunbox and AudioMonitor 1.6.2
 ==================================
 
 Play your PC audio on your speakers and your headphones at the same time, combine up to four
@@ -6,8 +6,9 @@ microphones/inputs into one for Discord, add fun voice effects, and (AudioFunbox
 (Rocksmith Real Tone cable) through a pedalboard.
 
 Two editions, same program:
-  - AudioFunbox.exe   everything: Speaker copy, Microphones, Fun box and the Pedalboard.
-  - AudioMonitor.exe  the same without the Pedalboard tab.
+  - AudioFunbox.exe   for Rocksmith Real Tone cable players: Speaker copy, Microphones, Fun box and
+                      the Pedalboard. Comes with the installer.
+  - AudioMonitor.exe  the same without the Pedalboard tab. Installer or portable exe.
   Only one of them runs at a time (starting the other one tells you so). They share their settings
   and the "Start with Windows" entry, so you can switch between them without setting anything up again.
 
@@ -22,7 +23,8 @@ Install, or run portable
     Run it again later to switch: with AudioMonitor installed it offers "Upgrade to the full version",
     with AudioFunbox installed "Remove pedalboard"; both also offer "Uninstall" and "Update or repair".
     Switching keeps all your settings. Uninstall asks whether to delete your settings too (default: keep).
-  - Portable: AudioFunbox.exe and AudioMonitor.exe run as they are, from any folder. Nothing to install.
+  - Portable: AudioMonitor.exe runs as it is, from any folder. Nothing to install. (AudioFunbox.exe does
+    too, if you copy it out of an installed folder or build it yourself.)
 
 Use
 ---
@@ -52,7 +54,7 @@ Speaker copy tab
 
 Microphones tab (use several inputs as one mic, e.g. in Discord)
   - Needs VB-CABLE, a free virtual audio cable driver from VB-Audio (https://vb-audio.com/Cable/).
-    Install it once; Audio Monitor finds it automatically.
+    Install it once; the app finds it automatically.
   - Add up to 4 inputs (mics, a headset mic, the Rocksmith guitar cable, ...). Each has a Level
     slider (100% = unchanged, 200% = twice as loud, 0% = muted) and a live level meter.
   - Mode:
@@ -102,8 +104,8 @@ Pedalboard tab (AudioFunbox only: your guitar through pedals)
   - "Boost" alone makes the guitar louder without changing its sound. "Auto": click, play your hardest
     for 8 seconds, and it sets the boost so your loudest notes land just under the limit.
   - The cable is captured raw: Windows 11 attaches "Voice Clarity" (speech noise suppression) to USB
-    inputs, which rewrites an instrument's signal (it fades steady sounds and held notes away). Audio
-    Monitor bypasses it for the guitar cable, in the pedalboard and in the mic mixer. Other apps are
+    inputs, which rewrites an instrument's signal (it fades steady sounds and held notes away). The
+    app bypasses it for the guitar cable, in the pedalboard and in the mic mixer. Other apps are
     not affected.
   - Tuner for guitar and bass, down to a 5-string bass's low B (mutes the sound while on),
     input/output meters, and presets (Clean, Crunch, Lead, Metal,
@@ -142,7 +144,7 @@ Tip: keep the exes in their own folder that only you can write to, e.g. %LOCALAP
 
 The exes aren't code-signed, so Windows SmartScreen may warn on first run ("More info" > "Run anyway").
 Check that your copy is genuine with its SHA-256 hash (PowerShell: Get-FileHash AudioFunbox.exe):
-  AudioFunbox.exe   3F160256995C3501C139DB5A56A3CAD1636014E134E4B97497D1543616D45268
-  AudioMonitor.exe  CE65731D3F407A5283D44CBAD5367E86ECD7A9D7F3F44D84E2083405201B8D78
+  AudioFunbox.exe   1C936E13E49CE3DA4F738F64194F2064FBA1999D38061E65FD701350ABE2E5F3
+  AudioMonitor.exe  58E9D15DA6257B3DE8DF11E99E8E5A1799E39FD4A88246EA76AE1B147C0116F4
   The installer's own hash is listed on the project page:
   https://github.com/munchiefer/AudioMonitorFunbox

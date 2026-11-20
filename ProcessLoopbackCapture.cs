@@ -92,12 +92,12 @@ sealed class ProcessLoopbackCapture : IDisposable
         int paramsSize = Marshal.SizeOf<ActivationParams>();
         IntPtr pParams = Marshal.AllocHGlobal(paramsSize);
         IntPtr pVariant = Marshal.AllocHGlobal(Marshal.SizeOf<PropVariantBlob>());
+        var handler = new CompletionHandler();
         try
         {
             Marshal.StructureToPtr(activation, pParams, false);
             Marshal.StructureToPtr(new PropVariantBlob { vt = 65 /* VT_BLOB */, cbSize = paramsSize, pBlobData = pParams }, pVariant, false);
 
-            var handler = new CompletionHandler();
             ActivateAudioInterfaceAsync(VirtualDevice, IID_IAudioClient, pVariant, handler, out var operation);
             if (!handler.Done.WaitOne(5000) && handler.Abandon())
                 throw new TimeoutException("Process loopback activation timed out.");
@@ -110,6 +110,8 @@ sealed class ProcessLoopbackCapture : IDisposable
         {
             Marshal.FreeHGlobal(pVariant);
             Marshal.FreeHGlobal(pParams);
+            // Safe even after a timeout: a late completion sees "abandoned" and never touches the event.
+            handler.Done.Dispose();
         }
     }
 

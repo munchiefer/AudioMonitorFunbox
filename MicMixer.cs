@@ -46,6 +46,7 @@ sealed class MicMixer : IDisposable
             LowLatencyOutput? low = null;
             try { low = new LowLatencyOutput(output.ID, latencyMs, lowLatencyEngine: true); }
             catch { low = null; }
+            player = low;   // owned from here on, so Dispose() releases it if anything below fails
             int rate = low?.SampleRate ?? output.AudioClient.MixFormat.SampleRate;
             double outputPeriodMs = low?.PeriodMs ?? 10;
             OutputPeriodMs = outputPeriodMs;
@@ -60,16 +61,15 @@ sealed class MicMixer : IDisposable
             if (low != null)
             {
                 low.Failed += ex => Fault = "Mic output stopped: " + ex.Message;
-                player = low;
                 play = () => low.Start(final);
                 OutputInfo = $"low-latency, {low.QueuedMs:0.#} ms queued";
             }
             else
             {
                 var wasapi = new WasapiOut(output, AudioClientShareMode.Shared, true, Math.Max(latencyMs, 10));
+                player = wasapi;
                 wasapi.PlaybackStopped += (_, e) => { if (e.Exception != null) Fault = "Mic output stopped: " + e.Exception.Message; };
                 wasapi.Init(final);
-                player = wasapi;
                 play = wasapi.Play;
                 OutputInfo = "standard mode, ~22 ms queued";
             }

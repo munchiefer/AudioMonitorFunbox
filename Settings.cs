@@ -163,6 +163,8 @@ public sealed class Settings
         return this;
     }
 
+    static readonly JsonSerializerOptions SaveOptions = new() { WriteIndented = true };
+
     public void Save()
     {
         try
@@ -170,7 +172,7 @@ public sealed class Settings
             Directory.CreateDirectory(Dir);
             // Write to a temp file, then swap it in, so a crash mid-write can't leave a half-written file.
             string temp = FilePath + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+            File.WriteAllText(temp, JsonSerializer.Serialize(this, SaveOptions));
             File.Move(temp, FilePath, overwrite: true);
         }
         catch { /* ignore */ }

@@ -1,6 +1,7 @@
-# Text files: normalised line endings in the repository, native on checkout.
-* text=auto
-*.cs text diff=csharp
+# Text files: LF in the repository and on checkout, on every machine (whatever core.autocrlf says),
+# so a fresh clone builds byte-identical exes.
+* text=auto eol=lf
+*.cs text eol=lf diff=csharp
 *.iss text eol=crlf
 *.ps1 text eol=crlf
 

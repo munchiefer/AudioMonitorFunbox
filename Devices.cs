@@ -19,7 +19,8 @@ public sealed class DeviceFingerprint
     public string Hardware { get; set; } = "";
     public string Flow { get; set; } = "";
 
-    // PKEY_Device_InstanceId of the endpoint's audio device, e.g. "{1}.USB\VID_1234&PID_5678&MI_00\7&1A2B3C4D&0&0002".
+    // Endpoint property (undocumented, widely used) holding the instance path of the endpoint's audio device,
+    // e.g. "{1}.USB\VID_1234&PID_5678&MI_00\7&1A2B3C4D&0&0002".
     static readonly PropertyKey InstanceIdKey = new(new Guid("b3f8fa53-0004-438e-9003-51a46e139bfc"), 2);
     static readonly Regex Numbering = new(@"(?<=^|\()\d+\s?-\s", RegexOptions.CultureInvariant);
 

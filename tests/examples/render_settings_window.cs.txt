@@ -1,7 +1,8 @@
 // EXAMPLE (copy to ../mictest/Test.cs, adapt, run "dotnet run -c Release -- <output folder>").
 // Renders the settings window to PNG with a FAKE TrayApp: its constructor never runs, so no audio starts and
 // nothing can be saved. The form's "loading" flag is held on right after construction, so no control event can
-// reach the app or the settings. Never construct a real TrayApp in a test (see CLAUDE.md, safety rules).
+// reach the app or the settings. Never construct a real TrayApp in a test: it would start audio and could save
+// over the real settings.json.
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using NAudio.CoreAudioApi;

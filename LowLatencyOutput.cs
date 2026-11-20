@@ -21,6 +21,7 @@ sealed class LowLatencyOutput : IDisposable
     Thread? thread;
     volatile bool stopping;
     float[] scratch = Array.Empty<float>();
+    float[] outBuf = Array.Empty<float>();
 
     public int SampleRate { get; }
     public double PeriodMs { get; }
@@ -31,51 +32,70 @@ sealed class LowLatencyOutput : IDisposable
     /// <param name="lowLatencyEngine">Ask for the device's minimum engine period (otherwise its default).</param>
     public LowLatencyOutput(string deviceId, int targetMs, bool lowLatencyEngine)
     {
-        var enumerator = (IMMDeviceEnumerator)Activator.CreateInstance(Type.GetTypeFromCLSID(MMDeviceEnumeratorClsid, true)!)!;
-        Check(enumerator.GetDevice(deviceId, out var device));
-        var iid = typeof(IAudioClient3).GUID;
-        Check(device.Activate(ref iid, 0x17 /* CLSCTX_ALL */, IntPtr.Zero, out var obj));
-        client = (IAudioClient3)obj;
-
-        Check(client.GetMixFormat(out IntPtr format));
+        object? enumerator = null;
+        IMMDevice? device = null;
         try
         {
-            int tag = Marshal.ReadInt16(format, 0);
-            channels = Marshal.ReadInt16(format, 2);
-            SampleRate = Marshal.ReadInt32(format, 4);
-            int bits = Marshal.ReadInt16(format, 14);
-            bool isFloat = tag == 3 || (tag == unchecked((short)0xFFFE) && new Guid(ReadBytes(format, 24, 16)) == FloatSubtype);
-            if (!isFloat || bits != 32) throw new NotSupportedException("Device mix format is not 32-bit float.");
+            enumerator = Activator.CreateInstance(Type.GetTypeFromCLSID(MMDeviceEnumeratorClsid, true)!)!;
+            Check(((IMMDeviceEnumerator)enumerator).GetDevice(deviceId, out device));
+            var iid = typeof(IAudioClient3).GUID;
+            Check(device.Activate(ref iid, 0x17 /* CLSCTX_ALL */, IntPtr.Zero, out var obj));
+            client = (IAudioClient3)obj;
 
-            Check(client.GetSharedModeEnginePeriod(format, out uint defaultPeriod, out _, out uint minPeriod, out _));
-            uint period = lowLatencyEngine ? minPeriod : defaultPeriod;
-            int hr = client.InitializeSharedAudioStream(0x00040000 /* EVENTCALLBACK */, period, format, IntPtr.Zero);
-            if (hr == unchecked((int)0x88890028) /* AUDCLNT_E_ENGINE_PERIODICITY_LOCKED */)
+            Check(client.GetMixFormat(out IntPtr format));
+            try
             {
-                // Another app already runs this device at a fixed period: use that one.
-                Check(client.GetCurrentSharedModeEnginePeriod(out IntPtr current, out period));
-                Marshal.FreeCoTaskMem(current);
-                hr = client.InitializeSharedAudioStream(0x00040000, period, format, IntPtr.Zero);
+                int tag = Marshal.ReadInt16(format, 0);
+                channels = Marshal.ReadInt16(format, 2);
+                SampleRate = Marshal.ReadInt32(format, 4);
+                int bits = Marshal.ReadInt16(format, 14);
+                bool isFloat = tag == 3 || (tag == unchecked((short)0xFFFE) && new Guid(ReadBytes(format, 24, 16)) == FloatSubtype);
+                if (!isFloat || bits != 32) throw new NotSupportedException("Device mix format is not 32-bit float.");
+
+                Check(client.GetSharedModeEnginePeriod(format, out uint defaultPeriod, out _, out uint minPeriod, out _));
+                uint period = lowLatencyEngine ? minPeriod : defaultPeriod;
+                int hr = client.InitializeSharedAudioStream(0x00040000 /* EVENTCALLBACK */, period, format, IntPtr.Zero);
+                if (hr == unchecked((int)0x88890028) /* AUDCLNT_E_ENGINE_PERIODICITY_LOCKED */)
+                {
+                    // Another app already runs this device at a fixed period: use that one.
+                    Check(client.GetCurrentSharedModeEnginePeriod(out IntPtr current, out period));
+                    Marshal.FreeCoTaskMem(current);
+                    hr = client.InitializeSharedAudioStream(0x00040000, period, format, IntPtr.Zero);
+                }
+                Check(hr);
+                PeriodMs = period * 1000.0 / SampleRate;
             }
-            Check(hr);
-            PeriodMs = period * 1000.0 / SampleRate;
+            finally
+            {
+                Marshal.FreeCoTaskMem(format);
+            }
+
+            Check(client.GetBufferSize(out uint size));
+            bufferFrames = (int)size;
+            // At least one engine period plus a safety margin (the engine pulls a whole period at a time).
+            double minMs = PeriodMs + Math.Max(2.5, PeriodMs * 0.25);
+            int minFrames = (int)Math.Ceiling(minMs * SampleRate / 1000);
+            targetFrames = Math.Clamp(targetMs * SampleRate / 1000, minFrames, bufferFrames);
+
+            Check(client.SetEventHandle(ready.SafeWaitHandle.DangerousGetHandle()));
+            var renderIid = typeof(IAudioRenderClient).GUID;
+            Check(client.GetService(ref renderIid, out var renderObj));
+            render = (IAudioRenderClient)renderObj;
+        }
+        catch
+        {
+            // Release what was opened right away (callers fall back to standard mode or retry every few seconds).
+            if (render != null) Marshal.ReleaseComObject(render);
+            if (client != null) Marshal.ReleaseComObject(client);
+            ready.Dispose();
+            throw;
         }
         finally
         {
-            Marshal.FreeCoTaskMem(format);
+            // Only needed to open the audio client, which keeps its own reference to the device.
+            if (device != null) Marshal.ReleaseComObject(device);
+            if (enumerator != null) Marshal.ReleaseComObject(enumerator);
         }
-
-        Check(client.GetBufferSize(out uint size));
-        bufferFrames = (int)size;
-        // At least one engine period plus a safety margin (the engine pulls a whole period at a time).
-        double minMs = PeriodMs + Math.Max(2.5, PeriodMs * 0.25);
-        int minFrames = (int)Math.Ceiling(minMs * SampleRate / 1000);
-        targetFrames = Math.Clamp(targetMs * SampleRate / 1000, minFrames, bufferFrames);
-
-        Check(client.SetEventHandle(ready.SafeWaitHandle.DangerousGetHandle()));
-        var renderIid = typeof(IAudioRenderClient).GUID;
-        Check(client.GetService(ref renderIid, out var renderObj));
-        render = (IAudioRenderClient)renderObj;
     }
 
     /// <summary><paramref name="stereo"/> must be 32-bit float stereo at <see cref="SampleRate"/>.</summary>
@@ -127,14 +147,16 @@ sealed class LowLatencyOutput : IDisposable
         }
         else
         {
-            // Left/right into the first two channels (or both into a mono device), silence elsewhere.
-            var outBuf = new float[frames * channels];
+            // Left/right into the first two channels (or both into a mono device), silence elsewhere. The buffer is
+            // reused (no garbage on this ~3 ms thread); channels past the first two are never written, so stay 0.
+            int samples = frames * channels;
+            if (outBuf.Length < samples) outBuf = new float[samples];
             for (int i = 0; i < frames; i++)
             {
                 if (channels == 1) outBuf[i] = 0.5f * (scratch[i * 2] + scratch[i * 2 + 1]);
                 else { outBuf[i * channels] = scratch[i * 2]; outBuf[i * channels + 1] = scratch[i * 2 + 1]; }
             }
-            Marshal.Copy(outBuf, 0, data, outBuf.Length);
+            Marshal.Copy(outBuf, 0, data, samples);
         }
         Check(render.ReleaseBuffer((uint)frames, 0));
     }

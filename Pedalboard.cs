@@ -94,6 +94,7 @@ sealed class Pedalboard : IDisposable
             LowLatencyOutput? low = null;
             try { low = new LowLatencyOutput(output.ID, latencyMs, lowLatencyEngine: true); }
             catch { low = null; }
+            player = low;   // owned from here on, so Dispose() releases it if anything below fails
             int outputRate = low?.SampleRate ?? output.AudioClient.MixFormat.SampleRate;
             double outputPeriodMs = low?.PeriodMs ?? 10;
 
@@ -112,7 +113,6 @@ sealed class Pedalboard : IDisposable
             if (low != null)
             {
                 low.Failed += ex => Fault = "Output stopped: " + ex.Message;
-                player = low;
                 low.Start(monitor.Output);
                 OutputMs = low.QueuedMs;
                 OutputInfo = $"low-latency, {low.QueuedMs:0.#} ms queued";
@@ -120,9 +120,9 @@ sealed class Pedalboard : IDisposable
             else
             {
                 var wasapi = new WasapiOut(output, AudioClientShareMode.Shared, true, Math.Max(latencyMs, 10));
+                player = wasapi;
                 wasapi.PlaybackStopped += (_, e) => { if (e.Exception != null) Fault = "Output stopped: " + e.Exception.Message; };
                 wasapi.Init(monitor.Output);
-                player = wasapi;
                 wasapi.Play();
                 OutputMs = 22;
                 OutputInfo = "standard mode, ~22 ms queued";

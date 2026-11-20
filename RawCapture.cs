@@ -32,47 +32,67 @@ sealed class RawCapture : IDisposable
 
     public RawCapture(string deviceId, bool raw)
     {
-        var enumerator = (IMMDeviceEnumerator)Activator.CreateInstance(Type.GetTypeFromCLSID(MMDeviceEnumeratorClsid, true)!)!;
-        Check(enumerator.GetDevice(deviceId, out var device));
-        var iid = typeof(IAudioClient2).GUID;
-        Check(device.Activate(ref iid, 0x17 /* CLSCTX_ALL */, IntPtr.Zero, out var obj));
-        client = (IAudioClient2)obj;
-
-        if (raw)
-        {
-            // AudioClientProperties { cbSize = 16, bIsOffload = 0, eCategory = Other (0), Options = RAW (1) }
-            IntPtr properties = Marshal.AllocHGlobal(16);
-            try
-            {
-                Marshal.WriteInt32(properties, 0, 16);
-                Marshal.WriteInt32(properties, 4, 0);
-                Marshal.WriteInt32(properties, 8, 0);
-                Marshal.WriteInt32(properties, 12, 1);
-                IsRaw = client.SetClientProperties(properties) >= 0;   // not supported -> carry on with normal capture
-            }
-            finally { Marshal.FreeHGlobal(properties); }
-        }
-
-        Check(client.GetMixFormat(out IntPtr format));
+        object? enumerator = null;
+        IMMDevice? device = null;
         try
         {
-            int tag = Marshal.ReadInt16(format, 0);
-            int channels = Marshal.ReadInt16(format, 2);
-            int rate = Marshal.ReadInt32(format, 4);
-            int bits = Marshal.ReadInt16(format, 14);
-            bool isFloat = tag == 3 || (tag == unchecked((short)0xFFFE) && new Guid(ReadBytes(format, 24, 16)) == FloatSubtype);
-            if (!isFloat || bits != 32) throw new NotSupportedException("Device mix format is not 32-bit float.");
-            WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(rate, channels);
-            frameBytes = 4 * channels;
-            // 200 ms of room, so a scheduling hiccup never loses audio; packets still arrive every engine period.
-            Check(client.Initialize(0 /* shared */, 0x00040000 /* EVENTCALLBACK */, 2_000_000, 0, format, IntPtr.Zero));
-        }
-        finally { Marshal.FreeCoTaskMem(format); }
+            enumerator = Activator.CreateInstance(Type.GetTypeFromCLSID(MMDeviceEnumeratorClsid, true)!)!;
+            Check(((IMMDeviceEnumerator)enumerator).GetDevice(deviceId, out device));
+            var iid = typeof(IAudioClient2).GUID;
+            Check(device.Activate(ref iid, 0x17 /* CLSCTX_ALL */, IntPtr.Zero, out var obj));
+            client = (IAudioClient2)obj;
 
-        Check(client.SetEventHandle(ready.SafeWaitHandle.DangerousGetHandle()));
-        var captureIid = typeof(IAudioCaptureClient).GUID;
-        Check(client.GetService(ref captureIid, out var captureObj));
-        capture = (IAudioCaptureClient)captureObj;
+            if (raw)
+            {
+                // AudioClientProperties { cbSize = 16, bIsOffload = 0, eCategory = Other (0), Options = RAW (1) }
+                IntPtr properties = Marshal.AllocHGlobal(16);
+                try
+                {
+                    Marshal.WriteInt32(properties, 0, 16);
+                    Marshal.WriteInt32(properties, 4, 0);
+                    Marshal.WriteInt32(properties, 8, 0);
+                    Marshal.WriteInt32(properties, 12, 1);
+                    IsRaw = client.SetClientProperties(properties) >= 0;   // not supported -> carry on with normal capture
+                }
+                finally { Marshal.FreeHGlobal(properties); }
+            }
+
+            Check(client.GetMixFormat(out IntPtr format));
+            try
+            {
+                int tag = Marshal.ReadInt16(format, 0);
+                int channels = Marshal.ReadInt16(format, 2);
+                int rate = Marshal.ReadInt32(format, 4);
+                int bits = Marshal.ReadInt16(format, 14);
+                bool isFloat = tag == 3 || (tag == unchecked((short)0xFFFE) && new Guid(ReadBytes(format, 24, 16)) == FloatSubtype);
+                if (!isFloat || bits != 32) throw new NotSupportedException("Device mix format is not 32-bit float.");
+                WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(rate, channels);
+                frameBytes = 4 * channels;
+                // 200 ms of room, so a scheduling hiccup never loses audio; packets still arrive every engine period.
+                Check(client.Initialize(0 /* shared */, 0x00040000 /* EVENTCALLBACK */, 2_000_000, 0, format, IntPtr.Zero));
+            }
+            finally { Marshal.FreeCoTaskMem(format); }
+
+            Check(client.SetEventHandle(ready.SafeWaitHandle.DangerousGetHandle()));
+            var captureIid = typeof(IAudioCaptureClient).GUID;
+            Check(client.GetService(ref captureIid, out var captureObj));
+            capture = (IAudioCaptureClient)captureObj;
+        }
+        catch
+        {
+            // E.g. the device is busy (another app has it in exclusive mode): release what was opened right away,
+            // instead of leaving it to the garbage collector while the owner retries every few seconds.
+            if (capture != null) Marshal.ReleaseComObject(capture);
+            if (client != null) Marshal.ReleaseComObject(client);
+            ready.Dispose();
+            throw;
+        }
+        finally
+        {
+            // Only needed to open the audio client, which keeps its own reference to the device.
+            if (device != null) Marshal.ReleaseComObject(device);
+            if (enumerator != null) Marshal.ReleaseComObject(enumerator);
+        }
     }
 
     public void Start()

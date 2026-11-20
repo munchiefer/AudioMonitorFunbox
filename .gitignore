@@ -4,7 +4,9 @@ obj/
 *.user
 .vs/
 
-# The published exes ARE committed: "portable versions/*.exe" and "release/AudioMonitorFunbox-Setup-*.exe".
+# Committed binaries: "portable versions/AudioMonitor.exe" and "release/AudioMonitorFunbox-Setup-*.exe".
+# AudioFunbox.exe is shipped inside the installer only: its portable copy stays local (the installer build reads it).
+portable versions/AudioFunbox.exe
 
 # Private, never published: the developer's own working notes and session history.
 CLAUDE.md

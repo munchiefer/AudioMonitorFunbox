@@ -3,6 +3,17 @@
 Newest first. Each published build bumps `<Version>` in `AudioMonitor.csproj`; `release/README.txt` carries the
 current version and the SHA-256 of each published exe.
 
+## 1.6.2 (2026-11-21)
+- Review release: no change to what the app does.
+- When an audio device can't be opened (for example another app holds it in exclusive mode, and the app retries
+  every few seconds), everything that was already opened is released at once instead of waiting for the garbage
+  collector (measured: 600 failed opens used to leave ~600 handles open, now none).
+- The low-latency output reuses its buffer on mono and surround devices (no garbage on the audio thread).
+- One line-ending style on every machine (`.gitattributes`), so a fresh clone builds byte-identical exes.
+- Only the AudioMonitor portable exe is in the repository; AudioFunbox (the edition for the Rocksmith Real Tone
+  cable) is installed with the installer, which still offers both editions.
+- Wording fixes in comments, test notes and README.txt.
+
 ## 1.6.1 (2026-11-20)
 - "Start with Windows" is now a shortcut to the exe in the Startup folder (`AudioMonitorFunbox.lnk`), not a
   registry value holding a path: Windows lists it under Startup apps with the app's name and icon. The old
