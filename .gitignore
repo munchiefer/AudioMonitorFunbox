@@ -1,0 +1,15 @@
+# Build output
+bin/
+obj/
+*.user
+.vs/
+
+# The published exes ARE committed: "portable versions/*.exe" and "release/AudioMonitorFunbox-Setup-*.exe".
+
+# Private, never published: the developer's own working notes and session history.
+CLAUDE.md
+.claude/
+history/
+
+# Reference recordings made on the developer's own hardware (analysis input, not needed to build or test).
+tests/data/

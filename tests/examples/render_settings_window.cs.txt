@@ -1,0 +1,41 @@
+// EXAMPLE (copy to ../mictest/Test.cs, adapt, run "dotnet run -c Release -- <output folder>").
+// Renders the settings window to PNG with a FAKE TrayApp: its constructor never runs, so no audio starts and
+// nothing can be saved. The form's "loading" flag is held on right after construction, so no control event can
+// reach the app or the settings. Never construct a real TrayApp in a test (see CLAUDE.md, safety rules).
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using NAudio.CoreAudioApi;
+using AudioMonitor;
+
+ApplicationConfiguration.Initialize();
+var en = new MMDeviceEnumerator();
+string Id(DataFlow flow, string part) => en.EnumerateAudioEndPoints(flow, DeviceState.Active).FirstOrDefault(d => d.FriendlyName.Contains(part))?.ID ?? "";
+
+var app = (TrayApp)RuntimeHelpers.GetUninitializedObject(typeof(TrayApp));
+void SetField(string name, object? value) => typeof(TrayApp).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(app, value);
+var settings = new Settings
+{
+    MicEnabled = true, MicMode = MicMode.AutoSwitch,
+    Mics = { new MicEntry { DeviceId = Id(DataFlow.Capture, "Microphone") }, new MicEntry { DeviceId = Id(DataFlow.Capture, "Rocksmith") } },
+    Fx = new VoiceFxSettings { Enabled = true, RadioOn = true, RadioDrive = 55, WalkieTalkie = true },
+    PinnedTabs = { "Fun box" },          // pinned tabs get their own column, so they show up in the screenshot
+};
+SetField("<Settings>k__BackingField", settings);
+foreach (var f in new[] { "<Status>k__BackingField", "<MicStatus>k__BackingField", "<UpdateCheckStatus>k__BackingField", "<PedalStatus>k__BackingField" })
+    SetField(f, "");
+
+var form = new SettingsForm(app);
+form.Show(); Application.DoEvents();
+typeof(SettingsForm).GetField("loading", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(form, true);
+Application.DoEvents();
+using (var bmp = new Bitmap(form.Width, form.Height))
+{
+    form.DrawToBitmap(bmp, new Rectangle(0, 0, form.Width, form.Height));   // note: doesn't draw scroll bars
+    bmp.Save(Path.Combine(args[0], "settings.png"));
+}
+Console.WriteLine($"rendered {form.Width}x{form.Height}");
+form.Close();
+
+// Layout internals, if a test needs them (all private, via reflection):
+//   "columns" (TabControl[]), "pages" (TabPage[]), "scroller" (Panel), "micRows", method "ApplyPin(TabPage, bool)"
+//   (pins a tab WITHOUT saving; TogglePin saves, so never call that from a test).

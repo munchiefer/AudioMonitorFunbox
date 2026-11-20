@@ -1,0 +1,59 @@
+// EXAMPLE (copy to ../mictest/Test.cs, adapt, run "dotnet run -c Release").
+// READ-ONLY diagnosis: which apps use which audio device, with Windows levels, mutes and live peaks.
+// Changes nothing: no volumes set, nothing captured or played, no settings touched.
+// This found two real problems in the past: Discord listening to a microphone directly instead of "CABLE Output",
+// and the app not running at all.
+using System.Diagnostics;
+using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
+
+var en = new MMDeviceEnumerator();
+string Name(int pid) { try { using var p = Process.GetProcessById(pid); return p.ProcessName; } catch { return "?"; } }
+
+Console.WriteLine("Audio Monitor / Rocksmith / Discord processes: " + string.Join(", ", Process.GetProcesses()
+    .Where(p => p.ProcessName.StartsWith("AudioMonitor", StringComparison.OrdinalIgnoreCase) || p.ProcessName.StartsWith("Rocksmith", StringComparison.OrdinalIgnoreCase)
+             || p.ProcessName.StartsWith("Discord", StringComparison.OrdinalIgnoreCase))
+    .Select(p => $"{p.ProcessName}({p.Id})")));
+
+var devices = en.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active).ToList();
+var endpointPeak = devices.ToDictionary(d => d.ID, _ => 0f);
+var sessionPeak = new Dictionary<string, float>();
+var sw = Stopwatch.StartNew();
+while (sw.Elapsed.TotalSeconds < 6)   // sample the peak meters for 6 s
+{
+    foreach (var d in devices)
+    {
+        try { endpointPeak[d.ID] = Math.Max(endpointPeak[d.ID], d.AudioMeterInformation.MasterPeakValue); } catch { }
+        try
+        {
+            var m = d.AudioSessionManager; m.RefreshSessions();
+            for (int i = 0; i < m.Sessions.Count; i++)
+            {
+                string key = d.ID + "|" + m.Sessions[i].GetProcessID;
+                sessionPeak[key] = Math.Max(sessionPeak.GetValueOrDefault(key), m.Sessions[i].AudioMeterInformation.MasterPeakValue);
+            }
+        }
+        catch { }
+    }
+    Thread.Sleep(50);
+}
+
+foreach (var d in devices)
+{
+    string level;
+    try { level = $"Windows level {d.AudioEndpointVolume.MasterVolumeLevelScalar * 100:0}%{(d.AudioEndpointVolume.Mute ? " MUTED" : "")}"; } catch { level = "level ?"; }
+    Console.WriteLine($"{(d.DataFlow == DataFlow.Capture ? "IN " : "OUT")} {d.FriendlyName}: {level}, peak over 6 s {20 * Math.Log10(endpointPeak[d.ID] + 1e-9):0} dBFS");
+    try
+    {
+        var m = d.AudioSessionManager; m.RefreshSessions();
+        for (int i = 0; i < m.Sessions.Count; i++)
+        {
+            var s = m.Sessions[i];
+            int pid = (int)s.GetProcessID;
+            if (s.State != AudioSessionState.AudioSessionStateActive && pid == 0) continue;
+            float pk = sessionPeak.GetValueOrDefault(d.ID + "|" + pid);
+            Console.WriteLine($"      {Name(pid)} (pid {pid}) [{s.State.ToString().Replace("AudioSessionState", "")}] volume {s.SimpleAudioVolume.Volume * 100:0}%{(s.SimpleAudioVolume.Mute ? " MUTED" : "")}, peak {20 * Math.Log10(pk + 1e-9):0} dBFS");
+        }
+    }
+    catch (Exception ex) { Console.WriteLine("      sessions: " + ex.Message); }
+}

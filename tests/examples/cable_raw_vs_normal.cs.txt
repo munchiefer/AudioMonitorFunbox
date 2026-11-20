@@ -1,0 +1,67 @@
+// EXAMPLE (copy to ../mictest/Test.cs, adapt, run "dotnet run -c Release -- <output folder>").
+// READ-ONLY: captures the Rocksmith cable twice for 10 s each, nothing is played or changed:
+//   1) the normal way (through Windows' per-device effects, e.g. Voice Clarity), and
+//   2) in RAW mode (those effects bypassed), which is what the app uses for the cable.
+// Prints the level second by second and the mains hum with its overtones, and saves both as WAV.
+// This is the test that found Windows fading the cable to silence (2026-11-16). Rocksmith must be closed.
+using NAudio.CoreAudioApi;
+using NAudio.Wave;
+using AudioMonitor;
+
+const int Rate = 48000;
+var en = new MMDeviceEnumerator();
+var cable = en.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active).First(d => d.FriendlyName.Contains("Rocksmith"));
+string outDir = args.Length > 0 ? args[0] : ".";
+Console.WriteLine($"{cable.FriendlyName}  (Rocksmith running: {ProcessUtil.IsRocksmithRunning()})");
+
+float[] Capture(bool raw, int seconds, out bool gotRaw)
+{
+    var samples = new List<float>(Rate * seconds);
+    using var capture = new RawCapture(cable.ID, raw);
+    gotRaw = capture.IsRaw;
+    int stride = 4 * capture.WaveFormat.Channels;
+    capture.DataAvailable += (data, bytes) =>
+    {
+        lock (samples) for (int o = 0; o + stride <= bytes; o += stride) samples.Add(BitConverter.ToSingle(data, o));
+    };
+    capture.Start();
+    Thread.Sleep(seconds * 1000);
+    lock (samples) return samples.ToArray();
+}
+
+double Db(double v) => 20 * Math.Log10(v + 1e-12);
+double Rms(float[] x, int from, int count) { double s = 0; for (int i = from; i < from + count; i++) s += (double)x[i] * x[i]; return Math.Sqrt(s / count); }
+
+// Amplitude of one frequency: direct DFT with a Hann window. (Don't use NAudio's FastFourierTransform for this:
+// it showed mirror tones near 24 kHz that weren't in the signal.)
+double Tone(float[] x, int from, int count, double hz)
+{
+    double re = 0, im = 0, w = 2 * Math.PI * hz / Rate;
+    for (int i = 0; i < count; i++)
+    {
+        double v = x[from + i] * (0.5 - 0.5 * Math.Cos(2 * Math.PI * i / (count - 1)));
+        re += v * Math.Cos(w * i); im -= v * Math.Sin(w * i);
+    }
+    return 2 * Math.Sqrt(re * re + im * im) / (count * 0.5);
+}
+
+void Report(string name, float[] x, string file)
+{
+    Console.WriteLine($"=== {name}");
+    Console.WriteLine("  level each second (dBFS RMS): " + string.Join(" ", Enumerable.Range(0, x.Length / Rate).Select(s => $"{Db(Rms(x, s * Rate, Rate)):0}")));
+    int from = Rate * 3, count = Math.Min(x.Length - from, Rate * 6);   // after any start-up transient
+    if (count > Rate)
+    {
+        float peak = 0; for (int i = from; i < from + count; i++) peak = Math.Max(peak, Math.Abs(x[i]));
+        Console.WriteLine($"  after 3 s: {Db(Rms(x, from, count)):0.0} dBFS RMS, peak {Db(peak):0.0} dBFS");
+        if (Rms(x, from, count) > 1e-6)
+            Console.WriteLine("  mains hum and overtones (dBFS): " + string.Join(", ", Enumerable.Range(1, 10).Select(k => $"{50 * k} Hz {Db(Tone(x, from, count, 50.0 * k)):0}"))
+                              + $"; 60 Hz {Db(Tone(x, from, count, 60)):0}; 1 kHz (USB) {Db(Tone(x, from, count, 1000)):0}");
+    }
+    using var writer = new WaveFileWriter(Path.Combine(outDir, file), WaveFormat.CreateIeeeFloatWaveFormat(Rate, 1));
+    writer.WriteSamples(x, 0, x.Length);
+}
+
+Report("NORMAL capture (through Windows' effects)", Capture(raw: false, 10, out _), "cable_normal.wav");
+var rawSamples = Capture(raw: true, 10, out bool isRaw);
+Report($"RAW capture (Windows granted raw mode: {isRaw})", rawSamples, "cable_raw.wav");

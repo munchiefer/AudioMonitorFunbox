@@ -1,0 +1,57 @@
+// EXAMPLE (copy to ../mictest/Test.cs, adapt, run "dotnet run -c Release").
+// LIVE pedalboard run on the real Rocksmith cable with the output MUTED (the chain outputs silence, so nothing is
+// heard). Measures dropouts, the real buffer level, CPU and the cable's own noise. No TrayApp, no settings file.
+// Rocksmith must be closed (it takes the cable exclusively).
+using System.Diagnostics;
+using NAudio.CoreAudioApi;
+using AudioMonitor;
+
+int fails = 0;
+void Check(bool ok, string what) { Console.WriteLine($"{(ok ? "PASS" : "FAIL")}  {what}"); if (!ok) fails++; }
+Console.WriteLine($"Rocksmith running: {ProcessUtil.IsRocksmithRunning()}");
+
+var en = new MMDeviceEnumerator();
+MMDevice Find(DataFlow flow, string part) => en.EnumerateAudioEndPoints(flow, DeviceState.Active).First(d => d.FriendlyName.Contains(part));
+var cable = Find(DataFlow.Capture, "Rocksmith");
+var proc = Process.GetCurrentProcess();
+
+// The outputs to test: pass parts of their names as arguments (e.g. "Speakers" "Headset"), else the default output.
+var outputs = args.Length > 0 ? args.Select(a => Find(DataFlow.Render, a)).ToArray()
+                              : new[] { en.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia) };
+foreach (var (output, seconds) in outputs.Select(o => (o, 30)))
+{
+    var feed = new AudioFeed();
+    var settings = new PedalboardSettings { Enabled = true, BoostOn = false };
+    using var pedal = new Pedalboard(cable, output, settings, latencyMs: 0, feed, mute: true);
+
+    Thread.Sleep(2000);   // warm-up: reads before the first packet count as underruns
+    int u0 = pedal.Underruns, r0 = pedal.Recenters;
+    var cpu0 = proc.TotalProcessorTime;
+    var levels = new List<double>();
+    double noiseSum = 0; int noiseN = 0; float noisePeak = 0;
+    var recent = new float[8192];
+    var sw = Stopwatch.StartNew();
+    while (sw.Elapsed.TotalSeconds < seconds && pedal.Fault == null)
+    {
+        Thread.Sleep(37);
+        levels.Add(pedal.BufferLevelMs);
+        if (levels.Count % 25 == 0)
+        {
+            int n = pedal.CopyRecentInput(recent);   // raw input, before the pedals
+            for (int i = 0; i < n; i++) { noiseSum += recent[i] * recent[i]; noisePeak = Math.Max(noisePeak, Math.Abs(recent[i])); }
+            noiseN += n;
+        }
+    }
+    double cpu = (proc.TotalProcessorTime - cpu0).TotalMilliseconds / sw.Elapsed.TotalMilliseconds * 100;
+    Console.WriteLine($"--- {output.FriendlyName}: {pedal.OutputInfo}; buffer target {pedal.BufferTargetMs} ms; estimated lag {pedal.LagMs:0.0} ms");
+    Console.WriteLine($"    buffer level min {levels.Min():0.0} / avg {levels.Average():0.0} / max {levels.Max():0.0} ms; CPU {cpu:0.00}%");
+    Console.WriteLine($"    input: {20 * Math.Log10(Math.Sqrt(noiseSum / Math.Max(1, noiseN)) + 1e-12):0} dBFS RMS, peak {20 * Math.Log10(noisePeak + 1e-12):0} dBFS");
+    Check(pedal.Fault == null, $"ran {seconds} s without a fault ({pedal.Fault})");
+    Check(pedal.Underruns - u0 == 0, $"{pedal.Underruns - u0} dropouts, {pedal.Recenters - r0} gaps healed");
+}
+Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");
+
+// To test the Discord path without anyone hearing it: check first that nothing listens to "CABLE Output"
+// (AudioSessionManager on that capture device has no active sessions), then run a MicMixer into VB-CABLE and
+// capture "CABLE Output" back. Use plain RMS for level checks: the drift correction shifts a test tone by a few
+// Hz, which makes narrow single-frequency (Goertzel) windows read low.

@@ -1,0 +1,87 @@
+// 1.4.3 tests: (A) tuner on bass and guitar notes, offline; (B) raw capture of the Rocksmith cable, LIVE but
+// muted (the pedal chain outputs silence, the mixer's test gain is 0): nothing is heard, no settings touched.
+using NAudio.CoreAudioApi;
+using AudioMonitor;
+
+const int Rate = 48000;
+int fails = 0;
+void Check(bool ok, string what) { Console.WriteLine($"{(ok ? "PASS" : "FAIL")}  {what}"); if (!ok) fails++; }
+double Db(double v) => 20 * Math.Log10(v + 1e-12);
+
+// ---- A. Tuner: plucked-string-like tones (weak fundamental, strong overtones, decaying), with the measured
+//         50 Hz hum (-73 dBFS) and hiss mixed in. The tuner sees the last 8192 samples, like in the app.
+{
+    var rng = new Random(5);
+    float[] Note(double hz, double level = 0.1)
+    {
+        var x = new float[8192];
+        for (int i = 0; i < x.Length; i++)
+        {
+            double t = (double)i / Rate, decay = Math.Exp(-t * 1.5);
+            double v = 0.5 * Math.Sin(2 * Math.PI * hz * t) + 1.0 * Math.Sin(2 * Math.PI * 2 * hz * t + 0.4) + 0.6 * Math.Sin(2 * Math.PI * 3 * hz * t + 1.1)
+                     + 0.3 * Math.Sin(2 * Math.PI * 4 * hz * t + 2.0) + 0.15 * Math.Sin(2 * Math.PI * 5 * hz * t + 0.7);
+            x[i] = (float)(level * decay * v / 1.6 + 0.00032 * Math.Sin(2 * Math.PI * 50 * t) + (rng.NextDouble() * 2 - 1) * 0.0003);
+        }
+        return x;
+    }
+    double Expected(double hz) => 1200 * Math.Log2(hz / (440 * Math.Pow(2, (Math.Round(69 + 12 * Math.Log2(hz / 440)) - 69) / 12)));
+    foreach (var (hz, name, what) in new[]
+    {
+        (30.87, "B0", "bass low B (5-string)"), (41.20, "E1", "bass low E"), (55.00, "A1", "bass A"), (73.42, "D2", "bass D"), (98.00, "G2", "bass G"),
+        (31.14, "B0", "bass low B, 15 cents sharp"), (40.85, "E1", "bass low E, 15 cents flat"),
+        (82.41, "E2", "guitar low E"), (110.0, "A2", "guitar A"), (146.83, "D3", "guitar D"), (196.0, "G3", "guitar G"), (246.94, "B3", "guitar B"), (329.63, "E4", "guitar high E"),
+        (880.0, "A5", "guitar, 17th fret high E"),
+    })
+    {
+        var x = Note(hz);
+        double f = Tuner.Detect(x, x.Length, Rate);
+        var (note, cents) = f > 0 ? Tuner.Describe(f) : ("none", 0.0);
+        Check(note == name && Math.Abs(cents - Expected(hz)) < 3, $"tuner: {what,-28} {hz,7:0.00} Hz -> {note} {cents:+0.0;-0.0;0.0} cents (expected {name} {Expected(hz):+0.0;-0.0;0.0})");
+    }
+    var quietNote = Note(41.20, 0.004);   // a soft low E, about -50 dBFS
+    var (qn, _) = Tuner.Describe(Math.Max(1, Tuner.Detect(quietNote, quietNote.Length, Rate)));
+    Check(qn == "E1", $"tuner: a very soft low E (-50 dBFS) is still read as {qn}");
+    var humOnly = new float[8192];
+    for (int i = 0; i < humOnly.Length; i++) humOnly[i] = (float)(0.00032 * Math.Sin(2 * Math.PI * 50 * i / Rate) + (rng.NextDouble() * 2 - 1) * 0.0003);
+    Check(Tuner.Detect(humOnly, humOnly.Length, Rate) == 0, "tuner: your cable's hum alone (nothing played) shows no note");
+    var sw = System.Diagnostics.Stopwatch.StartNew();
+    for (int i = 0; i < 50; i++) Tuner.Detect(Note(41.2), 8192, Rate);
+    Check(sw.Elapsed.TotalMilliseconds / 50 < 15, $"tuner: one reading takes {sw.Elapsed.TotalMilliseconds / 50:0.0} ms (it runs every 80 ms)");
+}
+
+// ---- B. Raw capture, live and muted ----
+var en = new MMDeviceEnumerator();
+MMDevice Find(DataFlow flow, string part) => en.EnumerateAudioEndPoints(flow, DeviceState.Active).First(d => d.FriendlyName.Contains(part));
+Console.WriteLine($"Rocksmith running: {ProcessUtil.IsRocksmithRunning()}");
+var cable = Find(DataFlow.Capture, "Rocksmith");
+{
+    var feed = new AudioFeed();
+    using var pedal = new Pedalboard(cable, en.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia), new PedalboardSettings { Enabled = true, BoostOn = false }, 0, feed, mute: true);
+    Check(pedal.RawInput, "Pedalboard: Windows granted raw input for the cable");
+    Thread.Sleep(2000);
+    int u0 = pedal.Underruns, r0 = pedal.Recenters;
+    var recent = new float[8192];
+    var perSecond = new List<double>();
+    for (int s = 0; s < 20; s++)
+    {
+        Thread.Sleep(1000);
+        int n = pedal.CopyRecentInput(recent);
+        perSecond.Add(Db(Math.Sqrt(recent.Take(n).Sum(v => (double)v * v) / Math.Max(1, n))));
+    }
+    Console.WriteLine("    input level each second (dBFS RMS): " + string.Join(" ", perSecond.Select(v => $"{v:0}")));
+    Check(perSecond.Min() > -85 && perSecond.Max() - perSecond.Min() < 6, $"Pedalboard input stays at its true level ({perSecond.Min():0} to {perSecond.Max():0} dBFS) instead of fading to silence");
+    Check(pedal.Fault == null && pedal.Underruns - u0 == 0, $"Pedalboard on raw input: 20 s, {pedal.Underruns - u0} dropouts, {pedal.Recenters - r0} gaps healed, lag {pedal.LagMs:0.0} ms");
+}
+{
+    var cableIn = VbCable.FindCableInput(en)!;
+    foreach (bool raw in new[] { false, true })
+    {
+        using var mixer = new MicMixer(cableIn, new List<MicInputSpec> { new(cable, 1f, Raw: raw) }, MicMode.Mix, new VoiceFxSettings(), 0) { TestOutputGain = 0 };
+        Thread.Sleep(5000); mixer.TakeLevels();   // let Windows' processing settle
+        float peak = 0; int u0 = mixer.Underruns;
+        for (int i = 0; i < 50; i++) { Thread.Sleep(100); peak = Math.Max(peak, mixer.TakeLevels().Levels[0]); }
+        Console.WriteLine($"    mic mixer, cable captured {(raw ? "RAW   " : "normal")}: peak level {Db(peak):0} dBFS over 5 s, {mixer.Underruns - u0} dropouts");
+        if (raw) Check(peak > 1e-4 && mixer.Underruns - u0 == 0, "mic mixer: the cable arrives at its true level in raw mode, no dropouts");
+    }
+}
+Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAILED");

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Test harness: compiles the app's own sources (all except Program.cs) plus Test.cs in this folder.
+       Run it from this folder with: dotnet run -c Release
+       Test.cs is written fresh for each test (see CLAUDE.md); ready-made starting points are in ../examples. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>../../app.manifest</ApplicationManifest>
+    <NoWarn>CA2000;CA2007;CA1416;CS0649;CA5394</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+    <Compile Include="../../*.cs" Exclude="../../Program.cs" />
+    <EmbeddedResource Include="../../app.ico" LogicalName="AudioMonitor.app.ico" />
+  </ItemGroup>
+</Project>

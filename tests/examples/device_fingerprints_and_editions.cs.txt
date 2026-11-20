@@ -1,0 +1,124 @@
+// EXAMPLE (copy to ../mictest/Test.cs). The 1.5.0 checks: fingerprints, settings, both editions' window.
+// 1.5.0 checks: device fingerprints, settings migration, and both editions' settings window.
+// Makes no sound, opens no audio stream, never touches the real settings.json (no TrayApp is constructed: the
+// window test uses an uninitialized fake whose timers never run, so nothing can call Settings.Save()).
+// Part B reads the real device list (read-only). Run twice: plain (AudioFunbox) and with
+// -p:DefineConstants=MONITOR_EDITION (AudioMonitor). Arg 0 = folder for the window screenshot.
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using NAudio.CoreAudioApi;
+using AudioMonitor;
+
+int failures = 0;
+void Check(bool ok, string what) { Console.WriteLine($"{(ok ? "PASS" : "FAIL")}  {what}"); if (!ok) failures++; }
+string outDir = args.Length > 0 ? args[0] : ".";
+Console.WriteLine($"Edition under test: {Edition.Name} (Pedalboard: {Edition.HasPedalboard})");
+
+// ---- A) fingerprint rules (offline) ----
+Check(DeviceFingerprint.HardwareKey(@"{1}.USB\VID_1234&PID_5678&MI_00\7&1A2B3C4D&0&0002") == @"USB\VID_1234&PID_5678&MI_00",
+      "USB device without serial: the port-made last part is dropped");
+Check(DeviceFingerprint.HardwareKey(@"{1}.USB\VID_ABCD&PID_0001&MI_00\SN12345") == @"USB\VID_ABCD&PID_0001&MI_00\SN12345",
+      "USB device with a serial number: the serial is kept (tells identical devices apart)");
+Check(DeviceFingerprint.HardwareKey(@"{1}.HDAUDIO\FUNC_01&VEN_AAAA&DEV_0001\5&2A3B&0&0001") == @"HDAUDIO\FUNC_01&VEN_AAAA&DEV_0001",
+      "HDMI audio: the instance part is dropped");
+Check(DeviceFingerprint.HardwareKey("") == "", "no instance ID: empty hardware part, no crash");
+Check(DeviceFingerprint.NormalizeName("Speakers (2- USB Audio Device)") == "Speakers (USB Audio Device)", "Windows' \"2- \" numbering removed");
+Check(DeviceFingerprint.NormalizeName("1 - Monitor A (HDMI Audio)") == "Monitor A (HDMI Audio)",
+      "monitor \"1 - \" numbering removed");
+Check(DeviceFingerprint.NormalizeName("Speakers (Headset 7+)") == "Speakers (Headset 7+)", "a real name with digits stays as it is");
+
+var headset = DeviceFingerprint.Make("Speakers (Headset X)", @"{1}.USB\VID_1111&PID_2222&MI_00\9&1&0&0000", "Render");
+var headsetOtherPort = DeviceFingerprint.Make("Speakers (Headset X)", @"{1}.USB\VID_1111&PID_2222&MI_00\7&5&0&0003", "Render");
+var headsetMic = DeviceFingerprint.Make("Microphone (Headset X)", @"{1}.USB\VID_1111&PID_2222&MI_00\9&1&0&0000", "Capture");
+var speakers = DeviceFingerprint.Make("Speakers (Onboard Audio)", @"{1}.HDAUDIO\FUNC_01&VEN_BBBB&DEV_0002\4&1&0&0001", "Render");
+Check(headset.SameAs(headsetOtherPort), "same headset on another USB port has the same fingerprint");
+Check(DeviceFingerprint.FindMatch(headset, new[] { speakers, headsetOtherPort }) == 1, "match: the headset is found among other devices");
+Check(DeviceFingerprint.FindMatch(headset, new[] { speakers, headsetMic }) == -1, "no match: the headset's mic is not its speakers");
+Check(DeviceFingerprint.FindMatch(headset, new[] { headsetOtherPort, headset }) == -1, "two identical devices: no guess");
+Check(DeviceFingerprint.FindMatch(new DeviceFingerprint(), new[] { new DeviceFingerprint() }) == -1, "an empty/invalid fingerprint never matches");
+
+// ---- settings: moving a choice to a new ID, pruning, loading old files ----
+var s = new Settings
+{
+    MonitorDeviceId = "old", ListenDeviceId = "old", SourceDeviceId = "other",
+    Mics = { new MicEntry { DeviceId = "old" }, new MicEntry { DeviceId = "mic2" } },
+    Pedal = new PedalboardSettings { OutputDeviceId = "old" },
+};
+s.DeviceFingerprints["old"] = headset;
+s.ReplaceDeviceId("old", "new");
+Check(s.MonitorDeviceId == "new" && s.ListenDeviceId == "new" && s.Mics[0].DeviceId == "new" && s.Pedal.OutputDeviceId == "new",
+      "ReplaceDeviceId moves every choice that used the old ID");
+Check(s.SourceDeviceId == "other" && s.Mics[1].DeviceId == "mic2", "ReplaceDeviceId leaves other choices alone");
+Check(!s.DeviceFingerprints.ContainsKey("old") && s.DeviceFingerprints["new"].SameAs(headset), "the fingerprint moves with it");
+
+var sanitize = typeof(Settings).GetMethod("Sanitized", BindingFlags.NonPublic | BindingFlags.Instance)!;
+string json = """
+{ "MonitorDeviceId": "a", "Mics": [ { "DeviceId": "b" } ],
+  "DeviceFingerprints": {
+    "a": { "Name": "Speakers (Headset X)", "Hardware": "USB\\VID_1111&PID_2222&MI_00", "Flow": "Render" },
+    "gone": { "Name": "Old thing", "Hardware": "", "Flow": "Render" },
+    "b": { "Name": "", "Hardware": "x", "Flow": "Capture" } } }
+""";
+var loaded = (Settings)sanitize.Invoke(JsonSerializer.Deserialize<Settings>(json)!, null)!;
+Check(loaded.DeviceFingerprints.Count == 1 && loaded.DeviceFingerprints.ContainsKey("a"),
+      "on load: fingerprints of IDs no longer chosen, and broken ones, are dropped");
+var old = (Settings)sanitize.Invoke(JsonSerializer.Deserialize<Settings>("""{ "MonitorDeviceId": "a" }""")!, null)!;
+Check(old.DeviceFingerprints != null && old.DeviceFingerprints.Count == 0, "a 1.4.x settings file (no fingerprints) loads fine");
+var roundTrip = JsonSerializer.Deserialize<Settings>(JsonSerializer.Serialize(loaded))!;
+Check(roundTrip.DeviceFingerprints["a"].SameAs(loaded.DeviceFingerprints["a"]), "fingerprints survive save + load");
+
+// ---- B) the real device list (read-only) ----
+var en = new MMDeviceEnumerator();
+var prints = new List<(string Id, DeviceFingerprint P)>();
+foreach (var d in en.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active))
+    if (DeviceFingerprint.Of(d) is { } p) prints.Add((d.ID, p));
+Console.WriteLine($"      {prints.Count} active devices fingerprinted:");
+foreach (var (_, p) in prints) Console.WriteLine($"        {p.Flow,-7} {p.Name}  [{p.Hardware}]");
+Check(prints.Count > 0 && prints.All(x => x.P.IsValid), "every active device gets a valid fingerprint");
+int unique = prints.Count(x => DeviceFingerprint.FindMatch(x.P, prints.Select(y => y.P).ToList()) >= 0);
+Console.WriteLine($"      {unique} of {prints.Count} can be found again by fingerprint alone (the rest have an identical twin)");
+Check(unique > 0, "fingerprints tell real devices apart");
+// A simulated new ID: a choice saved under an ID that no longer exists finds the same device by its fingerprint.
+if (prints.FirstOrDefault(x => DeviceFingerprint.FindMatch(x.P, prints.Select(y => y.P).ToList()) >= 0) is { Id: not null } pick)
+{
+    int i = DeviceFingerprint.FindMatch(pick.P, prints.Select(y => y.P).ToList());
+    Check(prints[i].Id == pick.Id, $"simulated ID change: \"{pick.P.Name}\" is found again under its current ID");
+}
+
+// ---- C) the settings window of this edition, with a fake TrayApp ----
+ApplicationConfiguration.Initialize();
+var app = (TrayApp)RuntimeHelpers.GetUninitializedObject(typeof(TrayApp));
+void SetField(string name, object? value) => typeof(TrayApp).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(app, value);
+string anyCapture = prints.FirstOrDefault(x => x.P.Flow == "Capture").Id ?? "";
+var fake = new Settings
+{
+    MonitorDeviceId = "{0.0.0.00000000}.{00000000-0000-0000-0000-000000000001}",   // a device that isn't there
+    MicEnabled = true, Mics = { new MicEntry { DeviceId = anyCapture } },
+};
+fake.DeviceFingerprints[fake.MonitorDeviceId] = headset;
+SetField("<Settings>k__BackingField", fake);
+foreach (var f in new[] { "<Status>k__BackingField", "<MicStatus>k__BackingField", "<UpdateCheckStatus>k__BackingField", "<PedalStatus>k__BackingField" })
+    SetField(f, "");
+var form = new SettingsForm(app);
+form.Show(); Application.DoEvents();
+typeof(SettingsForm).GetField("loading", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(form, true);
+Application.DoEvents();
+var pages = (TabPage[])typeof(SettingsForm).GetField("pages", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(form)!;
+string tabs = string.Join(", ", pages.Select(p => p.Text));
+Console.WriteLine($"      window title \"{form.Text}\", tabs: {tabs}");
+Check(form.Text == Edition.Name, "window title is the edition's name");
+Check(pages.Any(p => p.Text == "Pedalboard") == Edition.HasPedalboard, Edition.HasPedalboard ? "Pedalboard tab shown" : "no Pedalboard tab");
+var monitorCombo = (ComboBox)typeof(SettingsForm).GetField("monitorCombo", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(form)!;
+string shown = monitorCombo.SelectedItem?.ToString() ?? "(nothing)";
+Console.WriteLine($"      \"Copy to\" with its device unplugged shows: {shown}");
+Check(shown == "Speakers (Headset X) (disconnected)", "an unplugged choice shows its name + \"(disconnected)\"");
+using (var bmp = new Bitmap(form.Width, form.Height))
+{
+    form.DrawToBitmap(bmp, new Rectangle(0, 0, form.Width, form.Height));
+    bmp.Save(Path.Combine(outDir, $"window_{Edition.Name}.png"));
+}
+form.Close();
+
+Console.WriteLine(failures == 0 ? "ALL PASSED" : $"{failures} FAILED");
+return failures == 0 ? 0 : 1;

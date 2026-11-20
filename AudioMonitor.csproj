@@ -1,0 +1,86 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <Version>1.6.1</Version>
+    <!-- Plain "1.6.1", without the git commit appended (builds happen before their commit exists). -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Copyright>Copyright © 2026 munchiefer</Copyright>
+  </PropertyGroup>
+
+  <!-- Two editions from the same sources (see Edition.cs):
+         dotnet publish -c Release                       AudioFunbox.exe  (everything)
+         dotnet publish -c Release -p:Edition=Monitor    AudioMonitor.exe (no Pedalboard)
+       Each edition builds into its own bin/obj folders, so the two never mix. -->
+  <PropertyGroup>
+    <Edition Condition="'$(Edition)' == ''">Funbox</Edition>
+    <OutputPath>bin\$(Configuration)\$(Edition)\</OutputPath>
+    <IntermediateOutputPath>obj\$(Configuration)\$(Edition)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Edition)' == 'Monitor'">
+    <AssemblyName>AudioMonitor</AssemblyName>
+    <AssemblyTitle>AudioMonitor</AssemblyTitle>
+    <Product>AudioMonitor</Product>
+    <Description>Copy your PC audio to a second device and mix your microphones for Discord, with voice effects.</Description>
+    <DefineConstants>$(DefineConstants);MONITOR_EDITION</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Edition)' != 'Monitor'">
+    <AssemblyName>AudioFunbox</AssemblyName>
+    <AssemblyTitle>AudioFunbox</AssemblyTitle>
+    <Product>AudioFunbox</Product>
+    <Description>Copy your PC audio to a second device, mix your microphones for Discord with voice effects, and play your guitar through a pedalboard.</Description>
+  </PropertyGroup>
+
+  <!-- Shareable build: one self-contained exe, no .NET install needed on the target PC. -->
+  <PropertyGroup>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <!-- No native libraries are needed, so nothing is ever extracted to %TEMP% at startup. -->
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <Deterministic>true</Deterministic>
+    <!-- Pin exact dependency versions + hashes (packages.lock.json) so builds can't silently change. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <!-- Static analysis: .NET security + reliability rules (e.g. CA2101, CA5392, CA2000). -->
+  <PropertyGroup>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisModeSecurity>All</AnalysisModeSecurity>
+    <AnalysisModeReliability>All</AnalysisModeReliability>
+    <AnalysisModeInteroperability>All</AnalysisModeInteroperability>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The icon, also used at run time for the tray (with an on/off dot) and the settings window. -->
+    <EmbeddedResource Include="app.ico" LogicalName="AudioMonitor.app.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only the WASAPI part of NAudio (pulls in NAudio.Core); no ASIO/MIDI/WinMM/WinForms extras. -->
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+  </ItemGroup>
+
+  <!-- tests/ holds the test harness (its own project, which compiles these sources); keep it out of the app. -->
+  <ItemGroup>
+    <Compile Remove="tests/**" />
+    <EmbeddedResource Remove="tests/**" />
+    <None Remove="tests/**" />
+  </ItemGroup>
+
+</Project>
