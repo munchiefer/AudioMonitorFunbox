@@ -25,12 +25,24 @@ sealed class RawCapture : IDisposable
     public WaveFormat WaveFormat { get; }
     /// <summary>True if Windows granted raw mode (false: the device doesn't support it, normal capture is used).</summary>
     public bool IsRaw { get; }
+    /// <summary>
+    /// How often packets arrive, in ms: the device's default engine period (10 ms for the Real Tone cable and most
+    /// devices), or its minimum period when low-latency capture was granted. Packets are never longer; if another app
+    /// runs the device faster, they are shorter (safe side).
+    /// </summary>
+    public double PacketMs { get; } = 10;
+    /// <summary>True when the device runs at its minimum engine period (low-latency capture) for this stream.</summary>
+    public bool LowLatency { get; }
     /// <summary>A packet of audio (buffer, bytes), on the capture thread.</summary>
     public event Action<byte[], int>? DataAvailable;
     /// <summary>The capture ended by itself (e.g. device unplugged, or another app took it exclusively).</summary>
     public event Action<Exception>? Failed;
 
-    public RawCapture(string deviceId, bool raw)
+    /// <param name="lowLatency">
+    /// Ask for the device's minimum engine period when it's shorter than the default (onboard sound often allows
+    /// ~3 ms instead of 10 ms). Anything that doesn't work out falls back to the normal 10 ms path.
+    /// </param>
+    public RawCapture(string deviceId, bool raw, bool lowLatency = false)
     {
         object? enumerator = null;
         IMMDevice? device = null;
@@ -38,24 +50,11 @@ sealed class RawCapture : IDisposable
         {
             enumerator = Activator.CreateInstance(Type.GetTypeFromCLSID(MMDeviceEnumeratorClsid, true)!)!;
             Check(((IMMDeviceEnumerator)enumerator).GetDevice(deviceId, out device));
-            var iid = typeof(IAudioClient2).GUID;
-            Check(device.Activate(ref iid, 0x17 /* CLSCTX_ALL */, IntPtr.Zero, out var obj));
-            client = (IAudioClient2)obj;
+            client = Activate(device);
+            if (raw) IsRaw = AskRaw(client);   // not supported -> carry on with normal capture
 
-            if (raw)
-            {
-                // AudioClientProperties { cbSize = 16, bIsOffload = 0, eCategory = Other (0), Options = RAW (1) }
-                IntPtr properties = Marshal.AllocHGlobal(16);
-                try
-                {
-                    Marshal.WriteInt32(properties, 0, 16);
-                    Marshal.WriteInt32(properties, 4, 0);
-                    Marshal.WriteInt32(properties, 8, 0);
-                    Marshal.WriteInt32(properties, 12, 1);
-                    IsRaw = client.SetClientProperties(properties) >= 0;   // not supported -> carry on with normal capture
-                }
-                finally { Marshal.FreeHGlobal(properties); }
-            }
+            if (client.GetDevicePeriod(out long defaultPeriod, out _) >= 0 && defaultPeriod >= 10_000 && defaultPeriod <= 1_000_000)
+                PacketMs = defaultPeriod / 10_000.0;   // 100 ns units; only plausible values (1..100 ms) are used
 
             Check(client.GetMixFormat(out IntPtr format));
             try
@@ -68,8 +67,28 @@ sealed class RawCapture : IDisposable
                 if (!isFloat || bits != 32) throw new NotSupportedException("Device mix format is not 32-bit float.");
                 WaveFormat = WaveFormat.CreateIeeeFloatWaveFormat(rate, channels);
                 frameBytes = 4 * channels;
-                // 200 ms of room, so a scheduling hiccup never loses audio; packets still arrive every engine period.
-                Check(client.Initialize(0 /* shared */, 0x00040000 /* EVENTCALLBACK */, 2_000_000, 0, format, IntPtr.Zero));
+                if (lowLatency && client is IAudioClient3 low
+                    && low.GetSharedModeEnginePeriod(format, out uint defaultFrames, out _, out uint minFrames, out _) >= 0
+                    && minFrames > 0 && minFrames < defaultFrames)
+                {
+                    // Low latency: the minimum engine period, with a buffer of at least 3 periods. On any failure (another
+                    // app holds the device at another period, a tiny buffer, ...) start over with a fresh client below.
+                    if (low.InitializeSharedAudioStream(0x00040000 /* EVENTCALLBACK */, minFrames, format, IntPtr.Zero) >= 0
+                        && client.GetBufferSize(out uint bufferFrames) >= 0 && bufferFrames >= 3 * minFrames)
+                    {
+                        LowLatency = true;
+                        PacketMs = minFrames * 1000.0 / rate;
+                    }
+                    else
+                    {
+                        Marshal.ReleaseComObject(client);
+                        client = Activate(device);
+                        if (raw) IsRaw = AskRaw(client);
+                    }
+                }
+                // The normal path: 200 ms of room, so a scheduling hiccup never loses audio; packets still arrive every engine period.
+                if (!LowLatency)
+                    Check(client.Initialize(0 /* shared */, 0x00040000 /* EVENTCALLBACK */, 2_000_000, 0, format, IntPtr.Zero));
             }
             finally { Marshal.FreeCoTaskMem(format); }
 
@@ -93,6 +112,29 @@ sealed class RawCapture : IDisposable
             if (device != null) Marshal.ReleaseComObject(device);
             if (enumerator != null) Marshal.ReleaseComObject(enumerator);
         }
+    }
+
+    static IAudioClient2 Activate(IMMDevice device)
+    {
+        var iid = typeof(IAudioClient2).GUID;
+        Check(device.Activate(ref iid, 0x17 /* CLSCTX_ALL */, IntPtr.Zero, out var obj));
+        return (IAudioClient2)obj;
+    }
+
+    /// <summary>Asks for raw mode (no Windows per-device effects); true if granted.</summary>
+    static bool AskRaw(IAudioClient2 client)
+    {
+        // AudioClientProperties { cbSize = 16, bIsOffload = 0, eCategory = Other (0), Options = RAW (1) }
+        IntPtr properties = Marshal.AllocHGlobal(16);
+        try
+        {
+            Marshal.WriteInt32(properties, 0, 16);
+            Marshal.WriteInt32(properties, 4, 0);
+            Marshal.WriteInt32(properties, 8, 0);
+            Marshal.WriteInt32(properties, 12, 1);
+            return client.SetClientProperties(properties) >= 0;
+        }
+        finally { Marshal.FreeHGlobal(properties); }
     }
 
     public void Start()
@@ -201,6 +243,32 @@ sealed class RawCapture : IDisposable
         [PreserveSig] int IsOffloadCapable(int category, out int capable);
         [PreserveSig] int SetClientProperties(IntPtr properties);
         [PreserveSig] int GetBufferSizeLimits(IntPtr format, int eventDriven, out long min, out long max);
+    }
+
+    [ComImport, Guid("7ED4EE07-8E67-4CD4-8C1A-2B7A5987AD42"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IAudioClient3
+    {
+        // IAudioClient
+        [PreserveSig] int Initialize(int shareMode, int streamFlags, long bufferDuration, long periodicity, IntPtr format, IntPtr sessionGuid);
+        [PreserveSig] int GetBufferSize(out uint frames);
+        [PreserveSig] int GetStreamLatency(out long latency);
+        [PreserveSig] int GetCurrentPadding(out uint frames);
+        [PreserveSig] int IsFormatSupported(int shareMode, IntPtr format, out IntPtr closest);
+        [PreserveSig] int GetMixFormat(out IntPtr format);
+        [PreserveSig] int GetDevicePeriod(out long defaultPeriod, out long minimumPeriod);
+        [PreserveSig] int Start();
+        [PreserveSig] int Stop();
+        [PreserveSig] int Reset();
+        [PreserveSig] int SetEventHandle(IntPtr handle);
+        [PreserveSig] int GetService(ref Guid iid, [MarshalAs(UnmanagedType.IUnknown)] out object service);
+        // IAudioClient2
+        [PreserveSig] int IsOffloadCapable(int category, out int capable);
+        [PreserveSig] int SetClientProperties(IntPtr properties);
+        [PreserveSig] int GetBufferSizeLimits(IntPtr format, int eventDriven, out long min, out long max);
+        // IAudioClient3
+        [PreserveSig] int GetSharedModeEnginePeriod(IntPtr format, out uint defaultPeriod, out uint fundamentalPeriod, out uint minPeriod, out uint maxPeriod);
+        [PreserveSig] int GetCurrentSharedModeEnginePeriod(out IntPtr format, out uint currentPeriod);
+        [PreserveSig] int InitializeSharedAudioStream(int streamFlags, uint periodInFrames, IntPtr format, IntPtr sessionGuid);
     }
 
     [ComImport, Guid("C8ADBD64-E71E-48a0-A4DE-185C395CD317"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

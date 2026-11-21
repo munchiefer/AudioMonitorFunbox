@@ -41,6 +41,7 @@ sealed class TrayApp : ApplicationContext
     readonly AudioFeed guitarFeed = new();   // pedalboard -> mic mixer (survives pedalboard restarts)
     string? pedalOutputId;                    // device actually played on
     bool pedalOutputIsDefault, rocksmithRunning, tunerMute;
+    bool pedalPausedForRocksmith;            // the pedalboard's input is the Rocksmith cable and the game has it
     string? micFeedId;                        // guitar input the running mixer takes from the pedalboard
     bool micGuitarPaused;                     // the mixer skipped the guitar cable because Rocksmith has it
     int micAlwaysLiveCount;                   // inputs the running mixer mixes in regardless of Auto-switch
@@ -225,7 +226,7 @@ sealed class TrayApp : ApplicationContext
             RestartPedal();
             if (Settings.MicEnabled && (micGuitarPaused || MicIncludesGuitar())) RestartMic();
         }
-        else if (PedalWanted && !rocksmithRunning && (pedal == null || pedal.Fault != null || PedalDefaultOutputChanged()))
+        else if (PedalWanted && !pedalPausedForRocksmith && (pedal == null || pedal.Fault != null || PedalDefaultOutputChanged()))
         {
             RestartPedal();   // e.g. cable or headphones replugged, or the Windows default output changed
         }
@@ -351,7 +352,7 @@ sealed class TrayApp : ApplicationContext
         tray.Icon = copyOn || micOn || pedalOn ? iconOn : iconOff;
         var tip = $"{Edition.Name} – Copy: {Status}" + (Settings.MicEnabled ? $" | Mic: {MicStatus}" : "");
         if (PedalWanted)
-            tip = $"{Edition.Name} | Pedalboard: {(pedalOn ? "on" : rocksmithRunning ? "paused (Rocksmith)" : "off")} | Copy: {Status}";
+            tip = $"{Edition.Name} | Pedalboard: {(pedalOn ? "on" : pedalPausedForRocksmith ? "paused (Rocksmith)" : "off")} | Copy: {Status}";
         tray.Text = tip.Length > 127 ? tip[..127] : tip;
         StatusChanged?.Invoke();
     }
@@ -419,7 +420,7 @@ sealed class TrayApp : ApplicationContext
         try
         {
             using var enumerator = new MMDeviceEnumerator();
-            return FindDevice(enumerator, entry.DeviceId) is { } d && IsGuitarCable(d);
+            return FindDevice(enumerator, entry.DeviceId) is { } d && IsGuitarInput(d);
         }
         catch { return false; }
     }
@@ -486,14 +487,16 @@ sealed class TrayApp : ApplicationContext
                 // With the pedalboard on, the guitar comes from it (processed); otherwise straight from the cable,
                 // except while Rocksmith runs: it holds the cable, and trying to open it would stop the whole mixer.
                 bool viaPedal = !string.IsNullOrEmpty(guitarId) && device.ID == guitarId;
-                if (!viaPedal && rocksmithRunning && IsGuitarCable(device)) { micGuitarPaused = true; continue; }
+                if (!viaPedal && rocksmithRunning && IsRocksmithCable(device)) { micGuitarPaused = true; continue; }
                 int existing = inputs.FindIndex(i => i.Device.ID == device.ID);
                 if (existing >= 0) { micSlots[row] = existing; continue; }   // same input picked twice
                 micSlots[row] = inputs.Count;
-                bool alwaysLive = entry.AlwaysLive ?? IsGuitarCable(device);
+                bool guitar = IsGuitarInput(device);
+                bool alwaysLive = entry.AlwaysLive ?? guitar;
                 if (alwaysLive) micAlwaysLiveCount++;
-                // The guitar cable is captured raw: Windows' Voice Clarity (speech noise suppression) would rewrite it.
-                inputs.Add(new MicInputSpec(device, entry.Gain / 100f, viaPedal ? guitarFeed : null, alwaysLive, Raw: IsGuitarCable(device)));
+                // The guitar is captured raw: Windows' Voice Clarity (speech noise suppression) would rewrite it.
+                inputs.Add(new MicInputSpec(device, entry.Gain / 100f, viaPedal ? guitarFeed : null, alwaysLive, Raw: guitar,
+                                            Channel: guitar ? GuitarChannelFor(device) : GuitarChannel.Both));
                 if (viaPedal) micFeedId = device.ID;
             }
             if (inputs.Count == 0)
@@ -588,6 +591,32 @@ sealed class TrayApp : ApplicationContext
         if (restartMic && Settings.MicEnabled && (micFeedId != null || MicIncludesGuitar())) RestartMic();
     }
 
+    /// <summary>
+    /// The guitar's connection type, device or channel changed: save, restart the pedalboard, and restart the mixer
+    /// too (it captures the guitar input raw and on the chosen channel when the pedalboard is off).
+    /// </summary>
+    public void ApplyGuitarInput()
+    {
+        Settings.Save();
+        RestartPedal();
+        if (Settings.MicEnabled) RestartMic();
+    }
+
+    /// <summary>Guitar / bass: that instrument's sound comes back, applied live (no restart).</summary>
+    public void SetInstrument(Instrument instrument)
+    {
+        Settings.Pedal.SwitchInstrument(instrument);
+        Settings.Save();
+        pedal?.Update(Settings.Pedal);
+    }
+
+    /// <summary>Tuning preset for the current instrument (the tuner's string boxes).</summary>
+    public void SetTuning(string name)
+    {
+        Settings.Pedal.SetTuning(name);
+        Settings.Save();
+    }
+
     /// <summary>Pedal knobs: applied live, no restart.</summary>
     public void SetPedals(bool save)
     {
@@ -612,10 +641,15 @@ sealed class TrayApp : ApplicationContext
     public (double Total, double Capture, int Buffer, double Output)? PedalLag =>
         pedal == null ? null : (pedal.LagMs, pedal.CaptureMs / 2, pedal.BufferTargetMs, pedal.OutputMs);
 
-    /// <summary>The chosen guitar input, or (automatic) the Rocksmith cable if connected; "" if none.</summary>
+    /// <summary>
+    /// The guitar input for the chosen connection type: the picked audio interface / PC jack input, or the picked
+    /// Real Tone cable, or (automatic) the Rocksmith cable if connected; "" if none.
+    /// </summary>
     string PedalInputId(MMDeviceEnumerator enumerator)
     {
-        if (!string.IsNullOrEmpty(Settings.Pedal.InputDeviceId)) return Settings.Pedal.InputDeviceId;
+        var p = Settings.Pedal;
+        if (p.Type != GuitarInputType.RealToneCable) return p.ExternalInputDeviceId;
+        if (!string.IsNullOrEmpty(p.InputDeviceId)) return p.InputDeviceId;
         try
         {
             foreach (var d in enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
@@ -625,12 +659,23 @@ sealed class TrayApp : ApplicationContext
         return "";
     }
 
-    bool IsGuitarCable(MMDevice device)
+    /// <summary>A Rocksmith Real Tone cable (Rocksmith takes it for itself while the game runs).</summary>
+    static bool IsRocksmithCable(MMDevice device)
     {
-        if (device.ID == Settings.Pedal.InputDeviceId) return true;
         try { return device.FriendlyName.Contains("Rocksmith", StringComparison.OrdinalIgnoreCase); }
         catch { return false; }
     }
+
+    /// <summary>The guitar: the input picked in the Pedalboard (any connection type) or a Rocksmith cable. Captured raw.</summary>
+    bool IsGuitarInput(MMDevice device)
+    {
+        string chosen = Settings.Pedal.ChosenInputId;
+        return (!string.IsNullOrEmpty(chosen) && device.ID == chosen) || IsRocksmithCable(device);
+    }
+
+    /// <summary>Channel carrying the guitar: the Pedalboard's choice for the picked interface / jack input, else both.</summary>
+    GuitarChannel GuitarChannelFor(MMDevice device) =>
+        !IsRocksmithCable(device) && device.ID == Settings.Pedal.ChosenInputId ? Settings.Pedal.EffectiveChannel : GuitarChannel.Both;
 
     bool MicIncludesGuitar()
     {
@@ -639,7 +684,7 @@ sealed class TrayApp : ApplicationContext
             using var enumerator = new MMDeviceEnumerator();
             string guitarId = PedalInputId(enumerator);
             return Settings.Mics.Any(m => !string.IsNullOrEmpty(m.DeviceId)
-                && (m.DeviceId == guitarId || (FindDevice(enumerator, m.DeviceId) is { } d && IsGuitarCable(d))));
+                && (m.DeviceId == guitarId || (FindDevice(enumerator, m.DeviceId) is { } d && IsGuitarInput(d))));
         }
         catch { return false; }
     }
@@ -659,14 +704,37 @@ sealed class TrayApp : ApplicationContext
     {
         StopPedal();
         var s = Settings.Pedal;
+        pedalPausedForRocksmith = false;
         if (!PedalWanted) { SetPedalStatus(false, "Off"); return; }
-        if (rocksmithRunning) { SetPedalStatus(false, "Paused: Rocksmith is using the guitar cable. Resumes by itself when Rocksmith closes."); return; }
+        const string Paused = "Paused: Rocksmith is using the guitar cable. Resumes by itself when Rocksmith closes.";
+        if (s.InputType == null)
+        {
+            // Not chosen yet (a new install): take the Real Tone cable as soon as one is connected (checked again every
+            // few seconds), otherwise wait for the user. Once set, it's saved and never changed by itself again.
+            bool cableFound = false;
+            try
+            {
+                using var en = new MMDeviceEnumerator();
+                cableFound = en.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active).Any(IsRocksmithCable);
+            }
+            catch { }
+            if (!cableFound) { SetPedalStatus(false, "Choose how your guitar is connected (Input, above)."); return; }
+            s.InputType = GuitarInputType.RealToneCable;
+            Settings.Save();
+        }
+        bool cableType = s.Type == GuitarInputType.RealToneCable;
+        // The Real Tone cable: step aside while Rocksmith runs (exactly as before 2.0.0). An audio interface or the
+        // PC's jack isn't Rocksmith's: it keeps playing, unless the picked input turns out to be the cable after all.
+        if (cableType && rocksmithRunning) { pedalPausedForRocksmith = true; SetPedalStatus(false, Paused); return; }
         try
         {
             using var enumerator = new MMDeviceEnumerator();
             string inputId = PedalInputId(enumerator);
-            if (inputId == "") throw new Exception("Rocksmith cable not found. Plug it in, or pick the guitar input above.");
+            if (inputId == "")
+                throw new Exception(cableType ? "Rocksmith cable not found. Plug it in, or pick it in the list above."
+                                              : "Pick the guitar input above (the audio interface or the PC's jack).");
             var input = FindDevice(enumerator, inputId) ?? throw new Exception("The guitar input isn't connected.");
+            if (rocksmithRunning && IsRocksmithCable(input)) { pedalPausedForRocksmith = true; SetPedalStatus(false, Paused); return; }
             pedalOutputIsDefault = string.IsNullOrEmpty(s.OutputDeviceId);
             var output = pedalOutputIsDefault
                 ? enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia)
@@ -674,8 +742,11 @@ sealed class TrayApp : ApplicationContext
             if (VbCable.IsCable(output.FriendlyName))
                 throw new Exception("Pick speakers or headphones to play on. Discord gets the guitar through the mic mixer.");
             pedalOutputId = output.ID;
-            pedal = new Pedalboard(input, output, s, Settings.LatencyMs, guitarFeed, tunerMute);
+            var channel = GuitarChannelFor(input);
+            pedal = new Pedalboard(input, output, s, Settings.LatencyMs, guitarFeed, tunerMute, channel);
             SetPedalStatus(true, $"{Short(input.FriendlyName)} → {Short(output.FriendlyName)}. Output: {pedal.OutputInfo}."
+                + (cableType ? "" : $" Guitar channel: {ChannelName(channel)}.")
+                + (pedal.LowLatencyInput ? $" Low-latency input ({pedal.CaptureMs:0.##} ms packets)." : "")
                 + (pedal.RawInput ? " Raw input: Windows' voice processing is bypassed." : " Raw input isn't available for this device: Windows' effects may alter the sound."));
         }
         catch (Exception ex)
@@ -687,6 +758,14 @@ sealed class TrayApp : ApplicationContext
             SetPedalStatus(false, "Error: " + message);
         }
     }
+
+    static string ChannelName(GuitarChannel channel) => channel switch
+    {
+        GuitarChannel.Left => "left",
+        GuitarChannel.Right => "right",
+        GuitarChannel.Both => "both (mixed)",
+        _ => "automatic (the louder side)",
+    };
 
     void StopPedal()
     {

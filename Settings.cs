@@ -60,13 +60,14 @@ public sealed class Settings
         MonitorDeviceId = Swap(MonitorDeviceId);
         ListenDeviceId = Swap(ListenDeviceId);
         Pedal.InputDeviceId = Swap(Pedal.InputDeviceId);
+        Pedal.ExternalInputDeviceId = Swap(Pedal.ExternalInputDeviceId);
         Pedal.OutputDeviceId = Swap(Pedal.OutputDeviceId);
         foreach (var m in Mics) m.DeviceId = Swap(m.DeviceId);
         if (DeviceFingerprints.Remove(oldId, out var print)) DeviceFingerprints[newId] = print;
     }
 
     IEnumerable<string> ChosenDeviceIds() =>
-        new[] { SourceDeviceId, MonitorDeviceId, ListenDeviceId, Pedal.InputDeviceId, Pedal.OutputDeviceId }
+        new[] { SourceDeviceId, MonitorDeviceId, ListenDeviceId, Pedal.InputDeviceId, Pedal.ExternalInputDeviceId, Pedal.OutputDeviceId }
             .Concat(Mics.Select(m => m.DeviceId)).Where(id => !string.IsNullOrEmpty(id));
 
     // ---- Settings window ----
@@ -150,7 +151,9 @@ public sealed class Settings
         FxToggleHotkey = FxToggleHotkey?.Sanitized();
         FxPushToTalkHotkey = FxPushToTalkHotkey?.Sanitized();
         if (FxPushToTalkHotkey != null && FxPushToTalkHotkey.SameAs(FxToggleHotkey)) FxPushToTalkHotkey = null;   // one key, one job
-        Pedal = (Pedal ?? new()).Sanitized();
+        Pedal ??= new();
+        MigrateGuitarInput();
+        Pedal = Pedal.Sanitized();
         ListenDeviceId ??= "";
         PinnedTabs = (PinnedTabs ?? new()).Where(t => TabNames.Contains(t)).Distinct().ToList();
         var chosen = ChosenDeviceIds().ToHashSet();
@@ -164,6 +167,29 @@ public sealed class Settings
     }
 
     static readonly JsonSerializerOptions SaveOptions = new() { WriteIndented = true };
+
+    /// <summary>
+    /// Settings without a guitar connection type (before 2.0.0, or never chosen). A guitar input picked by hand that is
+    /// not a Rocksmith cable (known from its saved fingerprint) becomes an audio interface (USB) or a PC jack (anything
+    /// else), keeping the same device; any other input picked by hand stays the Real Tone cable. "Automatic" stays
+    /// not chosen: the app takes the Real Tone cable as soon as one is connected (as before), otherwise the user picks.
+    /// </summary>
+    void MigrateGuitarInput()
+    {
+        if (Pedal.InputType != null) return;
+        string id = Pedal.InputDeviceId ?? "";
+        if (id.Length == 0) return;
+        if (DeviceFingerprints != null && DeviceFingerprints.TryGetValue(id, out var print) && print != null
+            && !(print.Name ?? "").Contains("Rocksmith", StringComparison.OrdinalIgnoreCase))
+        {
+            Pedal.InputType = (print.Hardware ?? "").StartsWith("USB", StringComparison.OrdinalIgnoreCase)
+                ? GuitarInputType.AudioInterface : GuitarInputType.PcJack;
+            Pedal.ExternalInputDeviceId = id;
+            Pedal.InputDeviceId = "";
+            Pedal.InputChannel = GuitarChannel.Both;   // exactly what the app did with it before
+        }
+        else Pedal.InputType = GuitarInputType.RealToneCable;
+    }
 
     public void Save()
     {

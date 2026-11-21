@@ -144,7 +144,7 @@ begin
     'Both have the same settings, and you can switch later by running this installer again.',
     True, False);
   EditionPage.Add('AudioMonitor: speaker copy, microphone mixer for Discord, voice effects');
-  EditionPage.Add('AudioFunbox: everything in AudioMonitor, plus the guitar Pedalboard (Rocksmith Real Tone cable)');
+  EditionPage.Add('AudioFunbox: everything in AudioMonitor, plus the Pedalboard for guitar or bass (Rocksmith Real Tone cable, audio interface or PC jack)');
   if Chosen = 'Funbox' then EditionPage.SelectedValueIndex := 1 else EditionPage.SelectedValueIndex := 0;
 
   MaintenancePage := CreateInputOptionPage(wpWelcome,

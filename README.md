@@ -13,8 +13,9 @@ Designed and crafted by **munchiefer**; programmed by **Claude** (Anthropic's AI
 | **Listen to VB-CABLE** | Lets you hear exactly what Discord hears from you. |
 | **Fun box** | Voice effects for Discord (chipmunk, radio, demon, ghost, echo, walkie-talkie and more). |
 | **Hotkeys** | One key turns the effects on/off, another plays them only while held, in any app or game. |
-| **Pedalboard** (AudioFunbox) | Your Rocksmith Real Tone cable through guitar pedals and an amp, to your speakers and Discord. |
-| **Tuner** (AudioFunbox) | Tunes guitar and bass, down to a 5-string's low B. |
+| **Pedalboard** (AudioFunbox) | Guitar or bass (4/5 strings) through pedals and an amp, each with its own sound, to your speakers and Discord. |
+| **Guitar input** (AudioFunbox) | The Rocksmith Real Tone cable, an audio interface, or your PC's own jack (line-in or mic-in). |
+| **Tuner** (AudioFunbox) | Shows the note you play, plus tuning presets (E standard, Drop D, B standard, ...) with a box per string. |
 | **Device memory** | Remembers your devices, even unplugged, and picks them up again when you plug them back in. |
 
 Two editions: **AudioFunbox** (everything, for Real Tone cable players) and **AudioMonitor** (no Pedalboard).
@@ -31,10 +32,14 @@ Free, no ads, no account, no internet needed.
   "Listen to VB-CABLE" lets you hear what Discord hears.
 - **Fun box**: voice effects on that mix (Pitch, Underwater, Radio, Telephone, Demon, Ghost, Echo, Reverb,
   a walkie-talkie preset), each at a fixed, calibrated loudness, with global on/off and push-to-talk hotkeys.
-- **Pedalboard** (AudioFunbox, the edition for the Rocksmith Real Tone cable): play the cable through pedals (compressor, boost, drive,
-  amp + cabinet, modulation, delay, reverb, safety limiter) to your speakers or headphones and into the mixer,
-  with a tuner for guitar and bass. The cable is captured raw, past Windows 11's speech noise suppression,
-  which otherwise fades an instrument's held notes to silence.
+- **Pedalboard** (AudioFunbox, the edition for the Rocksmith Real Tone cable): play your guitar or 4/5-string
+  bass through pedals (compressor, boost, drive, amp + cabinet, modulation, delay, reverb, safety limiter) to
+  your speakers or headphones and into the mixer. Guitar and bass each keep their own sound and presets; bass
+  mode keeps the low notes. A tuner shows the note you play, with tuning presets per instrument. Made for the
+  Real Tone cable, and it also takes an audio interface's instrument input or one of the PC's own jacks (pick
+  which channel carries the instrument, or let Auto find it).
+  The guitar is captured raw, past Windows 11's speech noise suppression, which otherwise fades an
+  instrument's held notes to silence.
 
 Chosen devices are remembered: unplug your headphones and the choice stays; plug them back in and they're used
 again within a second or two. If Windows gives a device a new ID, it's recognised by its name and hardware model.
@@ -45,7 +50,7 @@ again within a second or two. If Windows gives a device a new ID, it's recognise
 |---|---|---|
 | Made for | Rocksmith Real Tone cable players | everyone |
 | Speaker copy, Microphones, Fun box | yes | yes |
-| Pedalboard (guitar/bass through pedals, tuner) | yes | no |
+| Pedalboard (guitar or bass through pedals, tuner with tuning presets; Real Tone cable, audio interface or PC jack) | yes | no |
 | Get it | installer (choose AudioFunbox) | installer or portable exe |
 
 Same program, same settings: only one of them runs at a time, and you can switch between them freely.
@@ -57,15 +62,15 @@ Same program, same settings: only one of them runs at a time, and you can switch
 
 ## Download
 
-Version 1.6.2. Pick one:
+Version 2.0.0. Pick one:
 
 | File | What it is | SHA-256 |
 |---|---|---|
-| [`release/AudioMonitorFunbox-Setup-1.6.2.exe`](release/AudioMonitorFunbox-Setup-1.6.2.exe) | **Installer**: choose AudioMonitor, or AudioFunbox for the Rocksmith Real Tone cable; run it again to upgrade, remove the pedalboard or uninstall | `46E6EB15C516FB29416AB66F19C54A778956939AA2F0AE1D9556600D271D0147` |
-| [`portable versions/AudioMonitor.exe`](portable%20versions/AudioMonitor.exe) | AudioMonitor, portable: just run it (no Pedalboard) | `58E9D15DA6257B3DE8DF11E99E8E5A1799E39FD4A88246EA76AE1B147C0116F4` |
+| [`release/AudioMonitorFunbox-Setup-2.0.0.exe`](release/AudioMonitorFunbox-Setup-2.0.0.exe) | **Installer**: choose AudioMonitor, or AudioFunbox for the Rocksmith Real Tone cable; run it again to upgrade, remove the pedalboard or uninstall | `9174F0A159995B4B95DA5266F72B19372C728BB73D2DF3C4872903FA45CF7920` |
+| [`portable versions/AudioMonitor.exe`](portable%20versions/AudioMonitor.exe) | AudioMonitor, portable: just run it (no Pedalboard) | `D366D680978614BA044224DB50BF1098BCB2E7B8684418A6337B6DF786A0F7AF` |
 
 AudioFunbox comes with the installer only (there is no portable download of it; to get a portable copy, build it
-from source, see [Building](#building)). Once installed, its exe's SHA-256 is `1C936E13E49CE3DA4F738F64194F2064FBA1999D38061E65FD701350ABE2E5F3`.
+from source, see [Building](#building)). Once installed, its exe's SHA-256 is `25C4FAC4B067794298C1A61C8648B40F990B320650A48B2A8F051AE27E1D170F`.
 
 The installer needs no administrator rights: it installs for your Windows user only. Nothing is code-signed, so
 SmartScreen may warn on first run ("More info" > "Run anyway"); check a download with `Get-FileHash <file>` in
@@ -103,7 +108,7 @@ The installer is built with [Inno Setup 6](https://jrsoftware.org/isinfo.php) fr
 (after publishing both exes into `portable versions`; only `AudioMonitor.exe` is kept in git there):
 
 ```
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=1.6.2 installer\AudioMonitorFunbox.iss
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=2.0.0 installer\AudioMonitorFunbox.iss
 ```
 
 The icon is generated by `python assets/make_icon.py` (needs Pillow).

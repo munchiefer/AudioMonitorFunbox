@@ -536,7 +536,9 @@ sealed partial class SettingsForm : Form
 
         tips.SetToolTip(name, "One of the inputs that are combined into VB-CABLE.");
         tips.SetToolTip(combo, "The microphone or input device to use: e.g. a USB microphone, your headset mic, or the Rocksmith guitar cable.\n" +
-                               (Edition.HasPedalboard ? "With the Pedalboard on, the guitar cable comes through the pedals." : "The Rocksmith cable is captured raw, past Windows' voice processing."));
+                               (Edition.HasPedalboard
+                                   ? "The guitar (the Rocksmith cable, or the input picked in the Pedalboard tab) is captured raw, on its channel;\nwith the Pedalboard on, it comes through the pedals."
+                                   : "The Rocksmith cable is captured raw, past Windows' voice processing."));
         tips.SetToolTip(remove, "Remove this input.");
         tips.SetToolTip(gain, "Level of this input. 100% = as Windows delivers it, 200% = twice as loud, 0% = muted.\n" +
                               "Use it to balance inputs, e.g. turn down a loud desk mic or turn up the guitar cable.\n" +
@@ -546,7 +548,9 @@ sealed partial class SettingsForm : Form
         tips.SetToolTip(live, "This input is live right now: Discord hears it.");
         tips.SetToolTip(always, "In Auto-switch mode, an always-live input is mixed in all the time instead of competing with the mics.\n" +
                                 "Use it for the guitar cable: otherwise your mic, hearing the room, keeps \"winning\" and the guitar is never live.\n" +
-                                "Ticked automatically for the Rocksmith cable. (In Mix mode every input is live anyway.)");
+                                (Edition.HasPedalboard ? "Ticked automatically for the guitar (the Rocksmith cable or the Pedalboard's guitar input)."
+                                                       : "Ticked automatically for the Rocksmith cable.") +
+                                " (In Mix mode every input is live anyway.)");
 
         micRows.Add(new MicRow { Combo = combo, Gain = gain, GainLabel = gainLabel, Meter = meter, Live = live, AlwaysLive = always });
         var panel = Column(Row(name, combo, remove), Row(Caption("Level"), gain, gainLabel, meter, live), always);

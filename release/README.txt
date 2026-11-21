@@ -1,4 +1,4 @@
-AudioFunbox and AudioMonitor 1.6.2
+AudioFunbox and AudioMonitor 2.0.0
 ==================================
 
 Play your PC audio on your speakers and your headphones at the same time, combine up to four
@@ -94,25 +94,47 @@ Fun box tab (voice effects on what Discord hears)
       Push-to-talk: the effects play only while you hold it; otherwise Discord hears your normal voice.
   - Changes apply instantly. Hear yourself with Discord's Settings > Voice & Video > Mic Test.
 
-Pedalboard tab (AudioFunbox only: your guitar through pedals)
-  - Takes the Rocksmith Real Tone cable (picked automatically) and plays it on your speakers or
-    headphones through: Compressor, Boost, Drive, Amp + cabinet, Modulation (chorus / flanger /
-    tremolo), Delay, Reverb, Master volume. Each pedal has an on/off switch and its own knobs.
+Pedalboard tab (AudioFunbox only: your guitar or bass through pedals)
+  - Instrument: Guitar (6 strings), Bass (4 strings) or Bass (5 strings). Guitar and bass each keep their
+    own pedal sound (the two basses share one): switching brings that sound back. Bass mode keeps the low
+    notes (low E, low B, drop tunings) that the guitar voicing cuts. The presets and tunings follow it.
+  - Input: how your instrument reaches the PC. A new install picks the Real Tone cable by itself as soon
+    as one is connected; otherwise choose here.
+      Rocksmith Real Tone cable:  Device "Automatic" picks it when it's plugged in.
+      Audio interface:            the instrument (Hi-Z) input of an audio interface; pick the interface
+                                  and the input the instrument is plugged into (Channel; Auto finds it).
+      PC audio jack:              one of the PC's own jacks (line-in, mic-in, front panel, a laptop's
+                                  headset jack), with a mono cable or adapter. Line-in is best; mic-in
+                                  is hotter (if the In meter hits the end, lower its level in Windows'
+                                  sound settings). If your jack isn't listed, plug the instrument in
+                                  first. A PC jack sounds duller than an instrument input. Channel: a
+                                  mono cable in a stereo jack usually feeds the left side only; Auto
+                                  uses the clearly louder side.
+  - Plays the guitar on your speakers or headphones through: Compressor, Boost, Drive, Amp + cabinet,
+    Modulation (chorus / flanger / tremolo), Delay, Reverb, Master volume. Each pedal has an on/off
+    switch and its own knobs.
   - There is no noise gate (removed in 1.4.4): nothing ever cuts your sound or the fade of a note.
     The cable's faint mains hum stays audible between notes; the Compressor makes it a little louder.
   - A safety limiter at the end means it can never clip, however much you boost.
   - "Boost" alone makes the guitar louder without changing its sound. "Auto": click, play your hardest
     for 8 seconds, and it sets the boost so your loudest notes land just under the limit.
-  - The cable is captured raw: Windows 11 attaches "Voice Clarity" (speech noise suppression) to USB
-    inputs, which rewrites an instrument's signal (it fades steady sounds and held notes away). The
-    app bypasses it for the guitar cable, in the pedalboard and in the mic mixer. Other apps are
-    not affected.
-  - Tuner for guitar and bass, down to a 5-string bass's low B (mutes the sound while on),
-    input/output meters, and presets (Clean, Crunch, Lead, Metal,
-    Ambient, Funk, Boost only, All off).
-  - While it's on, Discord (the mic mixer) gets the guitar through the pedals instead of the raw cable.
+  - The guitar is captured raw, whatever the input: Windows 11 attaches "Voice Clarity" (speech noise
+    suppression) to USB inputs, which rewrites an instrument's signal (it fades steady sounds and held
+    notes away). The app bypasses it for the guitar, in the pedalboard and in the mic mixer. Other
+    apps are not affected.
+  - Tuner for guitar and bass (mutes the sound while on): shows the note you play, down to a 5-string's
+    drop A. Pick a tuning (guitar: E standard, Drop D, E-flat standard, D standard, Drop C, Open G,
+    DADGAD; 4-string bass: E standard, Drop D, E-flat standard, D standard, Drop C; 5-string bass:
+    B standard, Drop A, half step down): one box per string shows its target note, and the string you
+    play lights up with which way to tune (up/down arrow) and how many cents (100 cents = one fret).
+  - Input/output meters, and presets. Guitar: Clean, Crunch, Lead, Metal, Ambient, Funk, Boost only,
+    All off. Bass: Clean, Warm, Growl, Slap, Pick, Dub, Boost only, All off.
+  - Where the device allows it (often onboard sound), the input runs in low-latency mode (shorter
+    packets than the usual 10 ms); the status line says so. The Real Tone cable always uses 10 ms.
+  - While it's on, Discord (the mic mixer) gets the instrument through the pedals instead of the raw input.
   - Rocksmith takes the cable for itself while it runs: the pedalboard (and the cable in the mic mixer)
-    pause and come back by themselves when Rocksmith closes.
+    pause and come back by themselves when Rocksmith closes. An audio interface or the PC's jack
+    keeps playing.
   - Lag from string to ear is shown in the tab: about 22 ms on speakers that support Windows'
     low-latency mode, about 40 ms on headsets that don't (the cable itself delivers sound in 10 ms
     packets, which Windows doesn't allow to go lower). Play through your speakers for the tightest feel.
@@ -144,7 +166,7 @@ Tip: keep the exes in their own folder that only you can write to, e.g. %LOCALAP
 
 The exes aren't code-signed, so Windows SmartScreen may warn on first run ("More info" > "Run anyway").
 Check that your copy is genuine with its SHA-256 hash (PowerShell: Get-FileHash AudioFunbox.exe):
-  AudioFunbox.exe   1C936E13E49CE3DA4F738F64194F2064FBA1999D38061E65FD701350ABE2E5F3
-  AudioMonitor.exe  58E9D15DA6257B3DE8DF11E99E8E5A1799E39FD4A88246EA76AE1B147C0116F4
+  AudioFunbox.exe   25C4FAC4B067794298C1A61C8648B40F990B320650A48B2A8F051AE27E1D170F
+  AudioMonitor.exe  D366D680978614BA044224DB50BF1098BCB2E7B8684418A6337B6DF786A0F7AF
   The installer's own hash is listed on the project page:
   https://github.com/munchiefer/AudioMonitorFunbox

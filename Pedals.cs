@@ -5,14 +5,228 @@ namespace AudioMonitor;
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ModType { Chorus, Flanger, Tremolo }
 
+/// <summary>How the guitar reaches the PC. Decides which device list, channel choice and help the Pedalboard shows.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum GuitarInputType
+{
+    /// <summary>The Rocksmith Real Tone cable (a USB instrument input). Pauses while Rocksmith runs.</summary>
+    RealToneCable,
+    /// <summary>An audio interface with an instrument (Hi-Z) input, usually USB.</summary>
+    AudioInterface,
+    /// <summary>The PC's own line-in or mic-in jack.</summary>
+    PcJack,
+}
+
+/// <summary>Which channel of a stereo input carries the guitar.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum GuitarChannel
+{
+    /// <summary>The clearly louder side (a mono guitar cable in a stereo jack usually feeds the left only); both if similar.</summary>
+    Auto,
+    Left,
+    Right,
+    /// <summary>The average of both sides (the Real Tone cable sends the same signal on both).</summary>
+    Both,
+}
+
+/// <summary>The instrument on the Pedalboard. Guitar and bass each keep their own pedal sound; the two basses share one.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum Instrument
+{
+    /// <summary>6-string guitar.</summary>
+    Guitar6,
+    /// <summary>4-string bass.</summary>
+    Bass4,
+    /// <summary>5-string bass (low B).</summary>
+    Bass5,
+}
+
+/// <summary>
+/// The pedal knobs: one sound. <see cref="PedalboardSettings"/> holds the sound in use (flat, as before 2.0.0) and
+/// keeps the other instrument family's sound here, so switching guitar / bass brings that sound back.
+/// </summary>
+public sealed class PedalTone
+{
+    public int MasterDb { get; set; }
+    public bool CompOn { get; set; }
+    public int CompSustain { get; set; } = 40;
+    public int CompLevelDb { get; set; }
+    public bool BoostOn { get; set; } = true;
+    public int BoostDb { get; set; } = 6;
+    public bool DriveOn { get; set; }
+    public int DriveGain { get; set; } = 40;
+    public int DriveTone { get; set; } = 50;
+    public int DriveLevelDb { get; set; } = -6;
+    public bool AmpOn { get; set; }
+    public int AmpBass { get; set; } = 50;
+    public int AmpMid { get; set; } = 50;
+    public int AmpTreble { get; set; } = 50;
+    public bool ModOn { get; set; }
+    public ModType ModType { get; set; } = ModType.Chorus;
+    public int ModRate { get; set; } = 30;
+    public int ModDepth { get; set; } = 50;
+    public bool DelayOn { get; set; }
+    public int DelayMs { get; set; } = 350;
+    public int DelayFeedback { get; set; } = 35;
+    public int DelayMix { get; set; } = 30;
+    public bool ReverbOn { get; set; }
+    public int ReverbSize { get; set; } = 50;
+    public int ReverbMix { get; set; } = 25;
+
+    public static PedalTone From(PedalboardSettings s) => new()
+    {
+        MasterDb = s.MasterDb, CompOn = s.CompOn, CompSustain = s.CompSustain, CompLevelDb = s.CompLevelDb,
+        BoostOn = s.BoostOn, BoostDb = s.BoostDb, DriveOn = s.DriveOn, DriveGain = s.DriveGain, DriveTone = s.DriveTone,
+        DriveLevelDb = s.DriveLevelDb, AmpOn = s.AmpOn, AmpBass = s.AmpBass, AmpMid = s.AmpMid, AmpTreble = s.AmpTreble,
+        ModOn = s.ModOn, ModType = s.ModType, ModRate = s.ModRate, ModDepth = s.ModDepth, DelayOn = s.DelayOn,
+        DelayMs = s.DelayMs, DelayFeedback = s.DelayFeedback, DelayMix = s.DelayMix, ReverbOn = s.ReverbOn,
+        ReverbSize = s.ReverbSize, ReverbMix = s.ReverbMix,
+    };
+
+    public void ApplyTo(PedalboardSettings s)
+    {
+        s.MasterDb = MasterDb; s.CompOn = CompOn; s.CompSustain = CompSustain; s.CompLevelDb = CompLevelDb;
+        s.BoostOn = BoostOn; s.BoostDb = BoostDb; s.DriveOn = DriveOn; s.DriveGain = DriveGain; s.DriveTone = DriveTone;
+        s.DriveLevelDb = DriveLevelDb; s.AmpOn = AmpOn; s.AmpBass = AmpBass; s.AmpMid = AmpMid; s.AmpTreble = AmpTreble;
+        s.ModOn = ModOn; s.ModType = ModType; s.ModRate = ModRate; s.ModDepth = ModDepth; s.DelayOn = DelayOn;
+        s.DelayMs = DelayMs; s.DelayFeedback = DelayFeedback; s.DelayMix = DelayMix; s.ReverbOn = ReverbOn;
+        s.ReverbSize = ReverbSize; s.ReverbMix = ReverbMix;
+    }
+
+    /// <summary>Same limits as the knobs (the file is user-editable).</summary>
+    public PedalTone Sanitized()
+    {
+        var s = new PedalboardSettings();
+        ApplyTo(s);
+        s.Sanitized();
+        return From(s);
+    }
+
+    /// <summary>A preset's starting point: everything off, keeping the boost amount and master volume you set.</summary>
+    public static PedalTone PresetBase(PedalboardSettings current) =>
+        new() { MasterDb = current.MasterDb, BoostDb = current.BoostDb, BoostOn = false };
+
+    /// <summary>The bass sound before any bass knob was turned: the basic "Clean" bass preset.</summary>
+    public static PedalTone BassDefault()
+    {
+        var t = new PedalTone { BoostOn = false };
+        BassPresets.Clean(t);
+        return t;
+    }
+}
+
+/// <summary>Basic bass sounds (shared by the default bass sound and the bass preset buttons).</summary>
+public static class BassPresets
+{
+    public static void Clean(PedalTone t) { t.CompOn = true; t.CompSustain = 20; }
+    public static void Warm(PedalTone t)
+    {
+        t.CompOn = true; t.CompSustain = 35;
+        t.AmpOn = true; t.AmpBass = 62; t.AmpMid = 45; t.AmpTreble = 40;
+    }
+    public static void Growl(PedalTone t)
+    {
+        t.CompOn = true; t.CompSustain = 30;
+        t.DriveOn = true; t.DriveGain = 35; t.DriveTone = 45; t.DriveLevelDb = -6;
+        t.AmpOn = true; t.AmpBass = 58; t.AmpMid = 60; t.AmpTreble = 50;
+    }
+    public static void Slap(PedalTone t)
+    {
+        t.CompOn = true; t.CompSustain = 60;
+        t.AmpOn = true; t.AmpBass = 62; t.AmpMid = 30; t.AmpTreble = 70;
+    }
+    public static void Pick(PedalTone t)
+    {
+        t.CompOn = true; t.CompSustain = 40;
+        t.AmpOn = true; t.AmpBass = 50; t.AmpMid = 55; t.AmpTreble = 68;
+    }
+    public static void Dub(PedalTone t)
+    {
+        t.CompOn = true; t.CompSustain = 45;
+        t.AmpOn = true; t.AmpBass = 70; t.AmpMid = 40; t.AmpTreble = 25;
+    }
+}
+
+/// <summary>A tuning: its name and the target note of each string, low to high, as MIDI note numbers (A4 = 69 = 440 Hz).</summary>
+public sealed record Tuning(string Name, int[] Strings)
+{
+    public static double Hz(int midi) => 440 * Math.Pow(2, (midi - 69) / 12.0);
+    public override string ToString() => Name;   // shown in the tuning list
+}
+
+/// <summary>Tuning presets per instrument. The first one is each instrument's default.</summary>
+public static class Tunings
+{
+    // MIDI numbers: E2 = 40, A2 = 45, D3 = 50, G3 = 55, B3 = 59, E4 = 64; E1 = 28, A1 = 33, D2 = 38, G2 = 43; B0 = 23.
+    public static readonly Tuning[] Guitar6 =
+    {
+        new("E standard", new[] { 40, 45, 50, 55, 59, 64 }),
+        new("Drop D", new[] { 38, 45, 50, 55, 59, 64 }),
+        new("E♭ standard (half step down)", new[] { 39, 44, 49, 54, 58, 63 }),
+        new("D standard", new[] { 38, 43, 48, 53, 57, 62 }),
+        new("Drop C", new[] { 36, 43, 48, 53, 57, 62 }),
+        new("Open G", new[] { 38, 43, 50, 55, 59, 62 }),
+        new("DADGAD", new[] { 38, 45, 50, 55, 57, 62 }),
+    };
+
+    public static readonly Tuning[] Bass4 =
+    {
+        new("E standard", new[] { 28, 33, 38, 43 }),
+        new("Drop D", new[] { 26, 33, 38, 43 }),
+        new("E♭ standard (half step down)", new[] { 27, 32, 37, 42 }),
+        new("D standard", new[] { 26, 31, 36, 41 }),
+        new("Drop C", new[] { 24, 31, 36, 41 }),
+    };
+
+    public static readonly Tuning[] Bass5 =
+    {
+        new("B standard (B E A D G)", new[] { 23, 28, 33, 38, 43 }),
+        new("Drop A", new[] { 21, 28, 33, 38, 43 }),
+        new("Half step down", new[] { 22, 27, 32, 37, 42 }),
+    };
+
+    public static Tuning[] For(Instrument instrument) => instrument switch
+    {
+        Instrument.Bass4 => Bass4,
+        Instrument.Bass5 => Bass5,
+        _ => Guitar6,
+    };
+
+    /// <summary>The named tuning for this instrument, or its default when the name is unknown.</summary>
+    public static Tuning Find(Instrument instrument, string? name) =>
+        For(instrument).FirstOrDefault(t => t.Name == name) ?? For(instrument)[0];
+}
+
 /// <summary>Pedalboard settings. Every value is clamped by <see cref="Sanitized"/> (the file is user-editable).</summary>
 public sealed class PedalboardSettings
 {
     public bool Enabled { get; set; }
-    /// <summary>Guitar input (capture device). Empty = automatic: the Rocksmith cable, if connected.</summary>
+    /// <summary>
+    /// How the guitar is connected. Null = not chosen yet (a new install: the app picks the Real Tone cable as soon as
+    /// one is connected, otherwise the user chooses). Settings from before 2.0.0 are worked out once on load.
+    /// </summary>
+    public GuitarInputType? InputType { get; set; }
+    /// <summary>Real Tone cable to use. Empty = automatic: the Rocksmith cable, if connected.</summary>
     public string InputDeviceId { get; set; } = "";
+    /// <summary>Audio interface or PC jack input to use (one choice for both types). Empty = not chosen yet.</summary>
+    public string ExternalInputDeviceId { get; set; } = "";
+    /// <summary>Channel carrying the guitar on an audio interface or PC jack (the Real Tone cable always uses both).</summary>
+    public GuitarChannel InputChannel { get; set; } = GuitarChannel.Auto;
     /// <summary>Where the guitar is played. Empty = the Windows default output (follows changes).</summary>
     public string OutputDeviceId { get; set; } = "";
+
+    /// <summary>The instrument played. Its family's sound is in the flat knob values below.</summary>
+    public Instrument Instrument { get; set; } = Instrument.Guitar6;
+    /// <summary>The guitar sound while a bass is chosen (null = never switched: the flat values are the guitar sound).</summary>
+    public PedalTone? GuitarTone { get; set; }
+    /// <summary>The bass sound while the guitar is chosen (null = never set: starts from the basic bass preset).</summary>
+    public PedalTone? BassTone { get; set; }
+    /// <summary>Chosen tuning preset per instrument (a name from <see cref="Tunings"/>; unknown = the default).</summary>
+    public string GuitarTuning { get; set; } = "";
+    public string Bass4Tuning { get; set; } = "";
+    public string Bass5Tuning { get; set; } = "";
+
+    // ---- the sound in use (the current instrument family's) ----
     public int MasterDb { get; set; }                     // -30..+12
 
     // No noise gate since 1.4.4, by design: nothing cuts the signal or the fade of a note (a faint hum stays). Old settings
@@ -44,8 +258,17 @@ public sealed class PedalboardSettings
 
     public PedalboardSettings Sanitized()
     {
+        if (InputType is { } type && !Enum.IsDefined(type)) InputType = null;
         InputDeviceId ??= "";
+        ExternalInputDeviceId ??= "";
+        if (!Enum.IsDefined(InputChannel)) InputChannel = GuitarChannel.Auto;
         OutputDeviceId ??= "";
+        if (!Enum.IsDefined(Instrument)) Instrument = Instrument.Guitar6;
+        GuitarTone = GuitarTone?.Sanitized();
+        BassTone = BassTone?.Sanitized();
+        GuitarTuning = Tunings.Find(Instrument.Guitar6, GuitarTuning).Name;
+        Bass4Tuning = Tunings.Find(Instrument.Bass4, Bass4Tuning).Name;
+        Bass5Tuning = Tunings.Find(Instrument.Bass5, Bass5Tuning).Name;
         MasterDb = Math.Clamp(MasterDb, -30, 12);
         CompSustain = Math.Clamp(CompSustain, 0, 100);
         CompLevelDb = Math.Clamp(CompLevelDb, -12, 12);
@@ -68,6 +291,137 @@ public sealed class PedalboardSettings
     }
 
     public PedalboardSettings Clone() => (PedalboardSettings)MemberwiseClone();
+
+    /// <summary>Connection type for the audio paths (the Real Tone cable while not chosen yet).</summary>
+    public GuitarInputType Type => InputType ?? GuitarInputType.RealToneCable;
+
+    /// <summary>The guitar device ID chosen for the current connection type ("" = automatic cable / not chosen).</summary>
+    public string ChosenInputId => Type == GuitarInputType.RealToneCable ? InputDeviceId : ExternalInputDeviceId;
+
+    /// <summary>Channel to use: always both for the Real Tone cable (exactly as before 2.0.0), else the choice.</summary>
+    public GuitarChannel EffectiveChannel => Type == GuitarInputType.RealToneCable ? GuitarChannel.Both : InputChannel;
+
+    public static bool IsBass(Instrument i) => i is Instrument.Bass4 or Instrument.Bass5;
+    public bool Bass => IsBass(Instrument);
+
+    /// <summary>
+    /// Switches the instrument. Between guitar and bass, the sound in use is kept for the old family and the new
+    /// family's sound comes back (the first time on bass: the basic bass preset). 4- and 5-string share one sound.
+    /// </summary>
+    public void SwitchInstrument(Instrument to)
+    {
+        if (!Enum.IsDefined(to) || to == Instrument) return;
+        bool wasBass = Bass, toBass = IsBass(to);
+        if (wasBass != toBass)
+        {
+            var current = PedalTone.From(this);
+            if (wasBass) BassTone = current; else GuitarTone = current;
+            var next = (toBass ? BassTone : GuitarTone) ?? (toBass ? PedalTone.BassDefault() : new PedalTone());
+            next.ApplyTo(this);
+        }
+        Instrument = to;
+    }
+
+    /// <summary>The chosen tuning of the current instrument.</summary>
+    public Tuning CurrentTuning => Tunings.Find(Instrument, Instrument switch
+    {
+        Instrument.Bass4 => Bass4Tuning,
+        Instrument.Bass5 => Bass5Tuning,
+        _ => GuitarTuning,
+    });
+
+    public void SetTuning(string name)
+    {
+        string valid = Tunings.Find(Instrument, name).Name;
+        if (Instrument == Instrument.Bass4) Bass4Tuning = valid;
+        else if (Instrument == Instrument.Bass5) Bass5Tuning = valid;
+        else GuitarTuning = valid;
+    }
+}
+
+/// <summary>
+/// Turns captured 32-bit float frames into the mono guitar signal, using the chosen channel. Both = the average of
+/// the first two channels, computed exactly as before 2.0.0. Auto follows each side's level (a few hundred ms) and
+/// uses one side when it's clearly louder (a mono guitar cable in a stereo jack: guitar on the left, the right
+/// silent or just noise), both when they're similar; changes glide over 10 ms, so they never click.
+/// One instance per capture stream (it keeps state); runs on the capture thread.
+/// </summary>
+sealed class ChannelPicker
+{
+    const float SelectRatio = 4f;     // mean-square ratio: one side 6 dB louder -> use it alone
+    const float ReleaseRatio = 2f;    // back to both once it's within 3 dB
+    readonly GuitarChannel mode;
+    readonly float envCoef, glide;
+    float envL, envR;
+    float wl = 0.5f, wr = 0.5f;       // current weights of left/right
+    GuitarChannel autoChoice = GuitarChannel.Both;
+
+    public ChannelPicker(GuitarChannel mode, int sampleRate)
+    {
+        this.mode = Enum.IsDefined(mode) ? mode : GuitarChannel.Both;
+        envCoef = 1 - MathF.Exp(-1f / (0.3f * sampleRate));
+        glide = 1f / (0.01f * sampleRate);
+        if (this.mode == GuitarChannel.Left) (wl, wr) = (1, 0);
+        else if (this.mode == GuitarChannel.Right) (wl, wr) = (0, 1);
+    }
+
+    /// <summary>For tests and diagnostics: the side Auto currently uses (Left, Right or Both).</summary>
+    public GuitarChannel AutoChoice => autoChoice;
+
+    /// <summary><paramref name="data"/> holds <paramref name="frames"/> frames of 32-bit float, <paramref name="channels"/> per frame.</summary>
+    public void ToMono(byte[] data, int frames, int channels, float[] mono)
+    {
+        int stride = 4 * channels;
+        if (channels < 2)
+        {
+            for (int f = 0; f < frames; f++) mono[f] = BitConverter.ToSingle(data, f * stride);
+            return;
+        }
+        if (mode == GuitarChannel.Both)
+        {
+            // Unchanged from before 2.0.0 (bit for bit): the average of the first two channels.
+            for (int f = 0; f < frames; f++)
+            {
+                float sum = 0;
+                for (int c = 0; c < 2; c++) sum += BitConverter.ToSingle(data, f * stride + c * 4);
+                mono[f] = sum / 2;
+            }
+            return;
+        }
+        float tl = mode == GuitarChannel.Left ? 1 : mode == GuitarChannel.Right ? 0 : Target(autoChoice).L;
+        float tr = 1 - tl;
+        for (int f = 0; f < frames; f++)
+        {
+            float l = BitConverter.ToSingle(data, f * stride), r = BitConverter.ToSingle(data, f * stride + 4);
+            if (mode == GuitarChannel.Auto)
+            {
+                envL += (l * l - envL) * envCoef;
+                envR += (r * r - envR) * envCoef;
+                if ((f & 63) == 0) { Decide(); (tl, tr) = Target(autoChoice); }
+            }
+            wl = wl < tl ? Math.Min(tl, wl + glide) : Math.Max(tl, wl - glide);
+            wr = wr < tr ? Math.Min(tr, wr + glide) : Math.Max(tr, wr - glide);
+            mono[f] = wl * l + wr * r;
+        }
+    }
+
+    static (float L, float R) Target(GuitarChannel side) => side switch
+    {
+        GuitarChannel.Left => (1, 0),
+        GuitarChannel.Right => (0, 1),
+        _ => (0.5f, 0.5f),
+    };
+
+    void Decide()
+    {
+        if (envL + envR < 1e-12f) return;   // digital silence: keep the current choice
+        autoChoice = autoChoice switch
+        {
+            GuitarChannel.Left => envL < envR * ReleaseRatio ? GuitarChannel.Both : GuitarChannel.Left,
+            GuitarChannel.Right => envR < envL * ReleaseRatio ? GuitarChannel.Both : GuitarChannel.Right,
+            _ => envL > envR * SelectRatio ? GuitarChannel.Left : envR > envL * SelectRatio ? GuitarChannel.Right : GuitarChannel.Both,
+        };
+    }
 }
 
 /// <summary>
@@ -141,6 +495,7 @@ sealed class PedalChain
             if (s.DelayOn && !last.DelayOn && delayMix.Value < 0.001f) delay.Clear();
             if (s.ReverbOn && !last.ReverbOn && reverbMix.Value < 0.001f) reverb.Clear();
             if (s.ModOn && !last.ModOn && modMix.Value < 0.001f) mod.Clear();
+            if (s.Bass != last.Bass) master.Value = 0;   // guitar <-> bass: the voicing changes, fade back in (20 ms)
             drive.Configure(s);
             amp.Configure(s);
             last = s;
@@ -337,19 +692,26 @@ sealed class PedalChain
         readonly float[] downHistory = new float[Taps * 2];
         int upPos, downPos;
         readonly Biquad tighten = new(), mids = new(), tone = new();
+        // Bass: a 150 Hz Linkwitz-Riley crossover (2nd order; the high band is inverted, so the two bands add up flat).
+        // Only the high band is driven: the low notes stay clean and full instead of being cut or smeared.
+        readonly Biquad splitLow = new(), splitHigh = new();
         float dcIn, dcOut;
         float k = 1, level = 1;
         int lastGain = -1, lastTone = -1, lastLevel = int.MinValue;
+        bool bass;
 
         public Drive(int rate)
         {
             this.rate = rate;
             tighten.HighPass(rate, 110, 0.6);
             mids.Peak(rate, 800, 0.8, 5);
+            splitLow.LowPass(rate, 150, 0.5);
+            splitHigh.HighPass(rate, 150, 0.5);
         }
 
         public void Configure(PedalboardSettings s)
         {
+            if (s.Bass != bass) { bass = s.Bass; Clear(); }
             if (s.DriveGain != lastGain) { k = DbToGain(s.DriveGain * 0.5); lastGain = s.DriveGain; }
             if (s.DriveTone != lastTone) { tone.LowPass(rate, 1200 * Math.Pow(6, s.DriveTone / 100.0), 0.7); lastTone = s.DriveTone; }
             if (s.DriveLevelDb != lastLevel) { level = DbToGain(s.DriveLevelDb); lastLevel = s.DriveLevelDb; }
@@ -358,13 +720,19 @@ sealed class PedalChain
         public void Clear()
         {
             Array.Clear(upHistory); Array.Clear(downHistory);
-            tighten.Clear(); mids.Clear(); tone.Clear();
+            tighten.Clear(); mids.Clear(); tone.Clear(); splitLow.Clear(); splitHigh.Clear();
             dcIn = dcOut = 0;
         }
 
         public float Process(float x)
         {
-            x = mids.Process(tighten.Process(x)) * k;
+            float low = 0;
+            if (bass)
+            {
+                low = splitLow.Process(x);
+                x = mids.Process(-splitHigh.Process(x)) * k;
+            }
+            else x = mids.Process(tighten.Process(x)) * k;
 
             // Upsample x4 (polyphase FIR), clip each sub-sample, low-pass and keep every 4th.
             upPos = (upPos + PhaseTaps - 1) % PhaseTaps;
@@ -384,7 +752,7 @@ sealed class PedalChain
             // The asymmetric curve adds a little DC: block it (1-pole high-pass at ~10 Hz).
             float dc = y - dcIn + 0.9987f * dcOut;
             dcIn = y; dcOut = dc;
-            return tone.Process(dc) * level;
+            return (tone.Process(dc) + low) * level;   // low = 0 for guitar
         }
 
         /// <summary>Blackman-windowed sinc low-pass at 4x rate, cutoff at 0.8 x the original Nyquist.</summary>
@@ -414,30 +782,61 @@ sealed class PedalChain
     {
         readonly int rate;
         readonly Biquad bass = new(), mid = new(), treble = new();
-        readonly Biquad[] cab;
+        readonly Biquad[] cab = { new(), new(), new(), new(), new(), new() };
         int lastBass = -1, lastMid = -1, lastTreble = -1;
+        bool? bassVoicing;
+        float makeup = 1.25f;
+
+        // Guitar: tone stack 120 Hz / 700 Hz / 2.8 kHz; a guitar speaker cut below 70 Hz and above ~5 kHz.
+        // Bass: tone stack 80 Hz / 500 Hz / 2.5 kHz; a bass cabinet that goes down to ~25 Hz (low B 30.9 Hz, drop A
+        // 27.5 Hz) and rolls off above ~4 kHz. Make-up gains keep the same knobs equally loud (measured with test noise).
+        double BassHz => bassVoicing == true ? 80 : 120;
+        double MidHz => bassVoicing == true ? 500 : 700;
+        double TrebleHz => bassVoicing == true ? 2500 : 2800;
 
         public AmpCab(int rate)
         {
             this.rate = rate;
-            cab = new[]
-            {
-                new Biquad().HighPass(rate, 70, 0.8),
-                new Biquad().Peak(rate, 110, 1.4, 3),
-                new Biquad().Peak(rate, 450, 1.0, -3),
-                new Biquad().Peak(rate, 2300, 1.2, 3),
-                new Biquad().LowPass(rate, 5200, 0.7),
-                new Biquad().LowPass(rate, 5200, 0.7),
-            };
+            Voice(bass: false);
         }
+
+        void Voice(bool bass)
+        {
+            bassVoicing = bass;
+            if (bass)
+            {
+                cab[0].HighPass(rate, 25, 0.7);
+                cab[1].Peak(rate, 60, 1.0, 2);
+                cab[2].Peak(rate, 400, 1.0, -2);
+                cab[3].Peak(rate, 1800, 1.2, 2);
+                cab[4].LowPass(rate, 4000, 0.7);
+                cab[5].LowPass(rate, 4000, 0.7);
+                makeup = BassMakeup;
+            }
+            else
+            {
+                cab[0].HighPass(rate, 70, 0.8);
+                cab[1].Peak(rate, 110, 1.4, 3);
+                cab[2].Peak(rate, 450, 1.0, -3);
+                cab[3].Peak(rate, 2300, 1.2, 3);
+                cab[4].LowPass(rate, 5200, 0.7);
+                cab[5].LowPass(rate, 5200, 0.7);
+                makeup = 1.25f;
+            }
+            lastBass = lastMid = lastTreble = -1;   // the tone stack moves to the new frequencies
+        }
+
+        /// <summary>Bass voicing's fixed make-up gain (calibrated: same knobs, same loudness as the guitar voicing).</summary>
+        internal const float BassMakeup = 1.25f;
 
         static double Db(int knob) => (knob - 50) * 0.24;   // 0..100 -> -12..+12 dB
 
         public void Configure(PedalboardSettings s)
         {
-            if (s.AmpBass != lastBass) { bass.LowShelf(rate, 120, Db(s.AmpBass)); lastBass = s.AmpBass; }
-            if (s.AmpMid != lastMid) { mid.Peak(rate, 700, 0.9, Db(s.AmpMid)); lastMid = s.AmpMid; }
-            if (s.AmpTreble != lastTreble) { treble.HighShelf(rate, 2800, Db(s.AmpTreble)); lastTreble = s.AmpTreble; }
+            if (s.Bass != bassVoicing) { Voice(s.Bass); Clear(); }
+            if (s.AmpBass != lastBass) { bass.LowShelf(rate, BassHz, Db(s.AmpBass)); lastBass = s.AmpBass; }
+            if (s.AmpMid != lastMid) { mid.Peak(rate, MidHz, 0.9, Db(s.AmpMid)); lastMid = s.AmpMid; }
+            if (s.AmpTreble != lastTreble) { treble.HighShelf(rate, TrebleHz, Db(s.AmpTreble)); lastTreble = s.AmpTreble; }
         }
 
         public void Clear()
@@ -450,7 +849,7 @@ sealed class PedalChain
         {
             x = treble.Process(mid.Process(bass.Process(x)));
             foreach (var b in cab) x = b.Process(x);
-            return x * 1.25f;   // the cabinet's roll-off takes away some loudness; give it back
+            return x * makeup;   // the cabinet's roll-off takes away some loudness; give it back
         }
     }
 
@@ -631,7 +1030,7 @@ static class Tuner
 
     /// <summary>
     /// Fundamental frequency in Hz, or 0 when there is no clear note (silence, noise, chord). Covers a 5-string
-    /// bass's low B (30.9 Hz) up to the high frets of a guitar (~1400 Hz). Give it the last 8192 samples: one
+    /// bass's low B (30.9 Hz) and drop A (27.5 Hz) up to the high frets of a guitar (~1400 Hz). Give it the last 8192 samples: one
     /// cycle of a low B lasts 32 ms, so low notes need ~170 ms of sound to be measured.
     /// </summary>
     public static double Detect(float[] input, int count, int rate)
@@ -645,7 +1044,7 @@ static class Tuner
         // Low notes (bass, and a guitar's low strings): the whole buffer at a quarter of the sample rate.
         if (count >= 8192)
         {
-            double low = Yin(input, count - 8192, 8192, 4, rate, 27, 700);
+            double low = Yin(input, count - 8192, 8192, 4, rate, 25, 700);   // 25 Hz: room below drop A (A0 = 27.5 Hz)
             if (low > 0 && low < 170) return low;
         }
         // Higher notes: the last 4096 samples at half rate (finer steps, so more precise up there).
@@ -700,6 +1099,23 @@ static class Tuner
         double denom = s0 - 2 * s1 + s2;
         double shift = Math.Abs(denom) > 1e-12 ? 0.5 * (s0 - s2) / denom : 0;
         return fs / (best + Math.Clamp(shift, -1, 1));
+    }
+
+    /// <summary>
+    /// The string whose target note (MIDI numbers, see <see cref="Tuning"/>) the note played is closest to, and how far
+    /// off it is in cents (negative = flat: tune up), or (-1, 0) when no string's target is within a semitone.
+    /// </summary>
+    public static (int Index, double Cents) NearestString(double hz, int[] targets)
+    {
+        int best = -1;
+        double bestCents = 0;
+        if (hz <= 0) return (-1, 0);
+        for (int i = 0; i < targets.Length; i++)
+        {
+            double cents = 1200 * Math.Log2(hz / Tuning.Hz(targets[i]));
+            if (Math.Abs(cents) <= 100 && (best < 0 || Math.Abs(cents) < Math.Abs(bestCents))) { best = i; bestCents = cents; }
+        }
+        return (best, best < 0 ? 0 : bestCents);
     }
 
     /// <summary>Nearest note name (e.g. "E2") and how far off it is in cents (-50..+50).</summary>

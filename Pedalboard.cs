@@ -66,6 +66,7 @@ sealed class Pedalboard : IDisposable
     readonly float[] recent = new float[RecentSamples];
     readonly object recentLock = new();
     int recentPos, recentCount;
+    readonly ChannelPicker picker = null!;
     float[] mono = Array.Empty<float>();
     byte[] stereoBytes = Array.Empty<byte>();
     float inputMax;
@@ -78,13 +79,18 @@ sealed class Pedalboard : IDisposable
     public string OutputInfo { get; } = "";
     /// <summary>Estimated string-to-speaker delay in ms, excluding the converters inside the devices.</summary>
     public double LagMs { get; }
-    public double CaptureMs => 10;
+    /// <summary>How often the input delivers a packet, in ms (10 for the Real Tone cable).</summary>
+    public double CaptureMs { get; } = 10;
     public int BufferTargetMs => monitor.TargetMs;
     public double OutputMs { get; }
     /// <summary>True when the input bypasses Windows' per-device effects (e.g. Voice Clarity).</summary>
     public bool RawInput => capture.IsRaw;
+    /// <summary>True when the input runs at its minimum (shorter than default) engine period.</summary>
+    public bool LowLatencyInput => capture.LowLatency;
 
-    public Pedalboard(MMDevice input, MMDevice output, PedalboardSettings settings, int latencyMs, AudioFeed feed, bool mute = false)
+    /// <param name="channel">Which input channel carries the guitar (<see cref="GuitarChannel.Both"/> for the Real Tone cable).</param>
+    public Pedalboard(MMDevice input, MMDevice output, PedalboardSettings settings, int latencyMs, AudioFeed feed, bool mute = false,
+                      GuitarChannel channel = GuitarChannel.Both)
     {
         this.feed = feed;
         InputId = input.ID;
@@ -98,16 +104,18 @@ sealed class Pedalboard : IDisposable
             int outputRate = low?.SampleRate ?? output.AudioClient.MixFormat.SampleRate;
             double outputPeriodMs = low?.PeriodMs ?? 10;
 
-            capture = new RawCapture(input.ID, raw: true);
+            capture = new RawCapture(input.ID, raw: true, lowLatency: true);   // the minimum period where the device allows it
             SampleRate = capture.WaveFormat.SampleRate;
             channels = capture.WaveFormat.Channels;
+            CaptureMs = capture.PacketMs;
+            picker = new ChannelPicker(channel, SampleRate);
 
             chain = new PedalChain(SampleRate, settings) { Mute = mute };
-            // Packets arrive every 10 ms, so the buffer swings ±5 ms around its target; it must stay above one
+            // Packets arrive every CaptureMs (10 ms for the cable), so the buffer swings ±half a packet around its target; it must stay above one
             // output read plus some jitter at its lowest point. Devices that read in big 10 ms chunks (e.g. some
             // wireless USB headsets) swing it further: measured 2 dropouts in 20 s without the extra half period, 0 with it.
             // The 4 ms jitter margin: at 3 ms the buffer's lowest point measured 2.2 ms over 30 s, too close for a busy PC.
-            int targetMs = (int)Math.Ceiling(5 + outputPeriodMs + 4 + (outputPeriodMs > 5 ? outputPeriodMs / 2 : 0));
+            int targetMs = (int)Math.Ceiling(CaptureMs / 2 + outputPeriodMs + 4 + (outputPeriodMs > 5 ? outputPeriodMs / 2 : 0));
             monitor = new DriftBuffer(WaveFormat.CreateIeeeFloatWaveFormat(SampleRate, 2), outputRate, targetMs);
 
             if (low != null)
@@ -127,7 +135,7 @@ sealed class Pedalboard : IDisposable
                 OutputMs = 22;
                 OutputInfo = "standard mode, ~22 ms queued";
             }
-            // A sample waits ~5 ms on average for its 10 ms packet, then ~the buffer target, then the output queue.
+            // A sample waits half a packet on average (5 ms for the cable), then ~the buffer target, then the output queue.
             LagMs = CaptureMs / 2 + targetMs + OutputMs;
 
             capture.DataAvailable += OnAudio;
@@ -170,7 +178,7 @@ sealed class Pedalboard : IDisposable
         {
             int frames = byteCount / (4 * channels);   // 32-bit float; the capture thread already has pro-audio scheduling
             if (mono.Length < frames) mono = new float[frames];
-            ReadMono(data, frames);
+            picker.ToMono(data, frames, channels, mono);
 
             float max = 0;
             for (int i = 0; i < frames; i++) max = Math.Max(max, Math.Abs(mono[i]));
@@ -193,19 +201,6 @@ sealed class Pedalboard : IDisposable
         catch (Exception ex)
         {
             Fault = ex.Message;
-        }
-    }
-
-    /// <summary>Average of the first two channels (the cable sends the same signal on both).</summary>
-    void ReadMono(byte[] data, int frames)
-    {
-        int stride = 4 * channels;
-        int used = Math.Min(channels, 2);
-        for (int f = 0; f < frames; f++)
-        {
-            float sum = 0;
-            for (int c = 0; c < used; c++) sum += BitConverter.ToSingle(data, f * stride + c * 4);
-            mono[f] = sum / used;
         }
     }
 

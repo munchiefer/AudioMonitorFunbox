@@ -9,8 +9,10 @@ public enum MicMode { Mix, AutoSwitch }
 
 /// <summary>One mixer input. Feed: take this (processed) audio instead of capturing the device, e.g. the guitar
 /// after the pedalboard. AlwaysLive: always mixed in, never switched off by Auto-switch (e.g. the guitar).
-/// Raw: capture without Windows' per-device effects (Voice Clarity etc.), for an instrument input.</summary>
-sealed record MicInputSpec(MMDevice Device, float Gain, AudioFeed? Feed = null, bool AlwaysLive = false, bool Raw = false);
+/// Raw: capture without Windows' per-device effects (Voice Clarity etc.), for an instrument input.
+/// Channel (raw inputs only): which channel carries the instrument; Both = the average, as for the Real Tone cable.</summary>
+sealed record MicInputSpec(MMDevice Device, float Gain, AudioFeed? Feed = null, bool AlwaysLive = false, bool Raw = false,
+                           GuitarChannel Channel = GuitarChannel.Both);
 
 /// <summary>
 /// Captures up to four microphones (or other inputs, like the Rocksmith cable) and plays them, mixed or
@@ -148,6 +150,8 @@ sealed class MicMixer : IDisposable
         readonly int outputRate, targetMs;
         IDisposable? subscription;
         byte[] feedBytes = Array.Empty<byte>();
+        float[] pickMono = Array.Empty<float>();
+        byte[] pickBytes = Array.Empty<byte>();
         float peak;
         volatile float gain;
         volatile DriftBuffer buffer;
@@ -177,8 +181,27 @@ sealed class MicMixer : IDisposable
                 rawCapture = new RawCapture(device.ID, raw: true);
                 string name = device.FriendlyName;
                 rawCapture.Failed += ex => owner.Fault = $"\"{name}\" stopped: {ex.Message}";
-                buffer = new DriftBuffer(rawCapture.WaveFormat, outputRate, targetMs);
-                rawCapture.DataAvailable += (data, bytes) => buffer.Push(data, bytes);
+                if (spec.Channel == GuitarChannel.Both || rawCapture.WaveFormat.Channels < 2)
+                {
+                    // As before 2.0.0: the drift buffer takes the device's own format (the mix averages left and right).
+                    buffer = new DriftBuffer(rawCapture.WaveFormat, outputRate, targetMs);
+                    rawCapture.DataAvailable += (data, bytes) => buffer.Push(data, bytes);
+                }
+                else
+                {
+                    // Only the channel that carries the instrument (e.g. the left of a PC's line-in), as stereo.
+                    var format = rawCapture.WaveFormat;
+                    var picker = new ChannelPicker(spec.Channel, format.SampleRate);
+                    buffer = new DriftBuffer(WaveFormat.CreateIeeeFloatWaveFormat(format.SampleRate, 2), outputRate, targetMs);
+                    rawCapture.DataAvailable += (data, bytes) =>
+                    {
+                        int frames = bytes / format.BlockAlign;
+                        if (pickMono.Length < frames) pickMono = new float[frames];
+                        picker.ToMono(data, frames, format.Channels, pickMono);
+                        int length = AudioFeed.ToStereoBytes(pickMono, frames, ref pickBytes);
+                        buffer.Push(pickBytes, length);
+                    };
+                }
                 return;
             }
             capture = new WasapiCapture(device, true, 10);

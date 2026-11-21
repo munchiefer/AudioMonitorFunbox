@@ -3,6 +3,41 @@
 Newest first. Each published build bumps `<Version>` in `AudioMonitor.csproj`; `release/README.txt` carries the
 current version and the SHA-256 of each published exe.
 
+## 2.0.0 (2026-11-21)
+- **Guitar or bass.** An Instrument choice on the Pedalboard tab: Guitar (6 strings), Bass (4 strings), Bass
+  (5 strings). Guitar and bass each keep their own pedal sound (the two basses share one), so switching brings
+  that sound back. Your existing knob settings become the guitar sound; the bass starts from a basic bass preset.
+- **Bass voicing keeps the low notes.** In bass mode the cabinet goes down to ~25 Hz (low E 41 Hz, low B 31 Hz,
+  drop A 27.5 Hz all pass; the guitar voicing cuts them by 7 to 14 dB), the amp's tone controls sit at
+  80 Hz / 500 Hz / 2.5 kHz, and the drive keeps the lows clean below 150 Hz. Fixed gains keep the same knobs
+  within 1 dB of the guitar voicing (measured with test noise). The guitar sound is unchanged, bit for bit.
+- **Presets follow the instrument:** the guitar presets as before, plus bass presets (Clean, Warm, Growl, Slap,
+  Pick, Dub, Boost only, All off).
+- **Tuner tuning presets:** pick a tuning (guitar: E standard, Drop D, E♭ standard, D standard, Drop C, Open G,
+  DADGAD; 4-string bass: E standard, Drop D, E♭ standard, D standard, Drop C; 5-string bass: B standard, Drop A,
+  half step down). One box per string shows its target note; the string you play lights up with which way to
+  tune and how many cents. The tuner now reads down to 25 Hz (drop A on a 5-string). The main display still
+  shows the note you play.
+- **Input:** a new install starts with the input "not chosen": the Real Tone cable is picked by itself as soon
+  as one is connected, otherwise you choose. "PC audio jack" now covers line-in, mic-in, the front panel and a
+  laptop's headset jack, with advice in the tab (if your jack isn't listed, plug the instrument in first).
+- **Low-latency input** for the pedalboard where the device allows a shorter engine period than 10 ms (often
+  onboard sound): about 8 ms less lag there (estimated). Anything that doesn't work out falls back to the normal
+  path. The Real Tone cable only offers 10 ms, so it stays exactly as before.
+- **Pedalboard: choose how the guitar is connected.** Rocksmith Real Tone cable, an audio interface's
+  instrument input, or the PC's own jack. The Device list follows the choice (Real Tone cables, or every
+  input), and help under it explains each.
+- **Channel choice** for an audio interface or the PC jack: Auto (the clearly louder side), Left / Input 1,
+  Right / Input 2, or both mixed. A mono guitar cable in a stereo jack usually feeds the left side only, which
+  used to come out 6 dB quieter, mixed with the empty side's noise. It applies to the pedalboard, the tuner, and
+  the mic mixer when it takes the guitar directly. The Real Tone cable always uses both sides, exactly as before.
+- **Rocksmith step-aside only for the cable:** a guitar on an audio interface or the line-in keeps playing while
+  Rocksmith runs.
+- The pedalboard's buffer and lag figure use the input's real packet size (10 ms for the cable, so unchanged).
+- Older settings: a guitar input picked by hand that isn't the cable becomes "Audio interface" (USB) or "PC
+  audio jack" (other), keeping the device and the old both-sides mix; "Automatic" still picks the cable.
+- Texts that said "cable" for any input now say "input"; the status shows the input's real packet size.
+
 ## 1.6.2 (2026-11-21)
 - Review release: no change to what the app does.
 - When an audio device can't be opened (for example another app holds it in exclusive mode, and the app retries
