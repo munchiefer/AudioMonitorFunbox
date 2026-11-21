@@ -3,6 +3,18 @@
 Newest first. Each published build bumps `<Version>` in `AudioMonitor.csproj`; `release/README.txt` carries the
 current version and the SHA-256 of each published exe.
 
+## 2.0.1 (2026-11-21)
+- **Speaker copy, "Only these apps": no more crackles.** Windows delivers app capture's 10 ms packets unevenly
+  (measured 7 to 12.75 ms apart; a whole device: 9.8 to 10.2 ms). At some moments, which come and go as the
+  two devices' clocks drift, a late packet found the 17 ms buffer short and the copy crackled. App capture now
+  keeps 27 ms: a replay of measured timings ran clean at every phase, with about 6 ms to spare. The copy is
+  about 10 ms later in this mode. Copying a whole device keeps its 17 ms, so a sync tuned by ear stays as it was.
+- **Speaker copy heals itself:** if a read ever finds the buffer short (a late packet, or the audio resuming
+  after a pause), it refills to its target at once, like the mic mixer already did, instead of crackling again
+  and again while the slow drift correction catches up.
+- **Speaker copy starts at the right delay:** the first audio used to land one packet (10 ms) late, and the
+  drift correction then dipped below the target for about a minute. It now starts exactly at the target.
+
 ## 2.0.0 (2026-11-21)
 - **Guitar or bass.** An Instrument choice on the Pedalboard tab: Guitar (6 strings), Bass (4 strings), Bass
   (5 strings). Guitar and bass each keep their own pedal sound (the two basses share one), so switching brings

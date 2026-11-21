@@ -21,12 +21,20 @@ sealed class AudioEngine : IDisposable
     int delayMs;
 
     /// <summary>
-    /// Beyond these errors (startup, a capture gap, a stall) the buffer is snapped straight back to its
-    /// target instead of being slowly steered, so the speakers/headphones alignment stays exact.
-    /// Normal packet jitter (~10 ms) never reaches them.
+    /// Beyond these errors (a capture gap, a stall) the buffer is snapped straight back to its target instead
+    /// of being slowly steered, so the speakers/headphones alignment stays exact. Normal packet jitter never
+    /// reaches them. A read that finds the buffer short also refills it at once (see <see cref="Push"/>).
     /// </summary>
     const int ResyncBelowMs = 25;
     const int ResyncAboveMs = 40;
+
+    /// <summary>
+    /// Extra buffer for app capture. Windows delivers its 10 ms packets unevenly (measured 7 to 12.75 ms apart,
+    /// against 9.8 to 10.2 ms for whole-device capture), so at some clock phases a late packet found the
+    /// 17 ms buffer short and crackled. With 10 ms more, a replay of measured timings ran clean at every phase.
+    /// </summary>
+    const int AppCaptureJitterMs = 10;
+    bool appCapture;
 
     readonly List<Output> outputs = new();
     readonly Output monitorOutput = null!;
@@ -64,6 +72,7 @@ sealed class AudioEngine : IDisposable
         public required BufferedWaveProvider Buffer;
         public required AdaptiveRate Rate;
         public bool Primed;
+        public int SeenUnderruns;
     }
 
     sealed class Input
@@ -145,6 +154,9 @@ sealed class AudioEngine : IDisposable
         ? $"low-latency, {monitorOutput.QueuedMs:0.#} ms queued"
         : "standard mode, ~22 ms queued";
 
+    /// <summary>Audio the copy keeps buffered ahead of the output: the jitter buffer plus the chosen delay.</summary>
+    public int CopyBufferMs => monitorOutput.TargetMs;
+
     public float Volume { set => monitorOutput.Volume.Volume = value; }
 
     /// <summary>Peak level (before volume) of the copy since the last call.</summary>
@@ -157,10 +169,14 @@ sealed class AudioEngine : IDisposable
     }
 
     /// <summary>Change the copy's delay live, without restarting the audio (so it can be tuned by ear).</summary>
-    public void SetDelay(int delayMs)
+    public void SetDelay(int delayMs) => Retarget(baseBufferMs, delayMs);
+
+    /// <summary>Move every tap to a new target live: silence in, or audio out, so the audio never restarts.</summary>
+    void Retarget(int baseMs, int delay)
     {
         var before = outputs.ToDictionary(o => o, o => o.TargetMs);
-        SetTargets(delayMs);
+        baseBufferMs = baseMs;
+        SetTargets(delay);
         foreach (var input in AllInputs())
             foreach (var tap in input.Taps)
             {
@@ -201,6 +217,12 @@ sealed class AudioEngine : IDisposable
     /// <summary>Make the set of captured processes match <paramref name="pids"/>. Call on the UI thread.</summary>
     public void SyncProcesses(ICollection<int> pids)
     {
+        if (!appCapture && loopbackInput == null)   // whole-device capture keeps its buffer (and the tuned sync)
+        {
+            appCapture = true;
+            Retarget(BaseBufferFor(captureMs: 10) + AppCaptureJitterMs, delayMs);
+        }
+
         while (failures.TryDequeue(out var f))
         {
             RemoveProcess(f.Pid);
@@ -265,16 +287,25 @@ sealed class AudioEngine : IDisposable
             int level = (int)tap.Buffer.BufferedDuration.TotalMilliseconds;
             if (!tap.Primed)
             {
-                // First real audio: start at exactly the target delay, however long the capture took to start.
+                // First real audio: be at exactly the target delay once this packet is in, however long the capture
+                // took to start. (Silence for the whole target plus the packet started the copy one packet late,
+                // and the drift correction then overshot below the target for about a minute.)
                 tap.Buffer.ClearBuffer();
-                AddSilence(tap.Buffer, target);
+                AddSilence(tap.Buffer, Math.Max(0, target - Ms(tap.Buffer.WaveFormat, count)));
                 tap.Rate.Reset();
+                tap.SeenUnderruns = tap.Rate.Underruns;
                 tap.Primed = true;
             }
-            else if (level < target - ResyncBelowMs)
+            else if (level < target - ResyncBelowMs || tap.Rate.Underruns != tap.SeenUnderruns)
             {
-                AddSilence(tap.Buffer, target - level);   // after a gap in the source audio
-                tap.Rate.ShiftLevel(target - level);
+                // After a gap in the source audio, or a read that found the buffer short (a late packet): refill to
+                // the target now, instead of crackling again and again while the slow drift correction catches up.
+                tap.SeenUnderruns = tap.Rate.Underruns;
+                if (level < target)
+                {
+                    AddSilence(tap.Buffer, target - level);
+                    tap.Rate.ShiftLevel(target - level);
+                }
             }
             else if (level > target + ResyncAboveMs)
             {
@@ -284,6 +315,8 @@ sealed class AudioEngine : IDisposable
             tap.Buffer.AddSamples(data, 0, count);
         }
     }
+
+    static int Ms(WaveFormat f, int bytes) => (int)Math.Round(bytes * 1000.0 / f.AverageBytesPerSecond);
 
     static int Bytes(WaveFormat f, int ms)
     {

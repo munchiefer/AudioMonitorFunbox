@@ -1,4 +1,4 @@
-AudioFunbox and AudioMonitor 2.0.0
+AudioFunbox and AudioMonitor 2.0.1
 ==================================
 
 Play your PC audio on your speakers and your headphones at the same time, combine up to four
@@ -50,7 +50,9 @@ Speaker copy tab
     using Windows' low-latency audio mode where the driver supports it. Raise it if you hear crackles.
   - "Delay the copy": when the source device is the slower one (e.g. Bluetooth headphones set as the
     Windows default, copied to your speakers), raise this until both sound as one. Applies instantly.
-  - "Only these apps": copy only selected apps (their child processes are included).
+  - "Only these apps": copy only selected apps (their child processes are included). Windows delivers
+    app audio less evenly than a whole device, so this mode keeps 10 ms more audio buffered: the copy is
+    about 10 ms later, which avoids crackles.
 
 Microphones tab (use several inputs as one mic, e.g. in Discord)
   - Needs VB-CABLE, a free virtual audio cable driver from VB-Audio (https://vb-audio.com/Cable/).
@@ -166,7 +168,7 @@ Tip: keep the exes in their own folder that only you can write to, e.g. %LOCALAP
 
 The exes aren't code-signed, so Windows SmartScreen may warn on first run ("More info" > "Run anyway").
 Check that your copy is genuine with its SHA-256 hash (PowerShell: Get-FileHash AudioFunbox.exe):
-  AudioFunbox.exe   25C4FAC4B067794298C1A61C8648B40F990B320650A48B2A8F051AE27E1D170F
-  AudioMonitor.exe  D366D680978614BA044224DB50BF1098BCB2E7B8684418A6337B6DF786A0F7AF
+  AudioFunbox.exe   E20A4FCFC6FD367A0E72A6313A661F8F3D95E1374D3768DB948AD5D147ED30E5
+  AudioMonitor.exe  33569787DFF031F9DC56CE17C35EB75F4724EBF55977CEF2436D4209DA9B819D
   The installer's own hash is listed on the project page:
   https://github.com/munchiefer/AudioMonitorFunbox
