@@ -31,9 +31,10 @@ sealed class AudioEngine : IDisposable
     /// <summary>
     /// Extra buffer for app capture. Windows delivers its 10 ms packets unevenly (measured 7 to 12.75 ms apart,
     /// against 9.8 to 10.2 ms for whole-device capture), so at some clock phases a late packet found the
-    /// 17 ms buffer short and crackled. With 10 ms more, a replay of measured timings ran clean at every phase.
+    /// 17 ms buffer short and crackled. With 8 ms more, a replay of measured timings ran clean at every phase
+    /// with 3.8 ms to spare (the latest packet measured was 3.3 ms late); 7 ms would leave less than that.
     /// </summary>
-    const int AppCaptureJitterMs = 10;
+    const int AppCaptureJitterMs = 8;
     bool appCapture;
 
     readonly List<Output> outputs = new();

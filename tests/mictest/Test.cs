@@ -1,7 +1,7 @@
-// 2.0.1 checks: the speaker copy's jitter buffer. App capture ("Selected apps") gets 10 ms more buffer, a read that
-// finds the buffer short refills it at once, and the first packet lands exactly at the target. SILENT and safe: no
-// TrayApp is constructed, settings.json is never written (its timestamp is checked); the live part runs the engine at
-// volume 0, so only zeros reach the output device. Run for both editions.
+// 2.0.2 checks: the speaker copy's jitter buffer. App capture ("Selected apps") keeps 8 ms more buffer (25 ms; 2.0.1
+// had 10 ms more), a read that finds the buffer short refills it at once, and the first packet lands exactly at the
+// target. SILENT and safe: no TrayApp is constructed, settings.json is never written (its timestamp is checked); the
+// live part runs the engine at volume 0, so only zeros reach the output device. Run for both editions.
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -14,6 +14,8 @@ void Check(bool ok, string what) { Console.WriteLine($"{(ok ? "PASS" : "FAIL")} 
 Console.WriteLine($"Edition under test: {Edition.Name}");
 string settingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AudioMonitor", "settings.json");
 DateTime? settingsTime = File.Exists(settingsPath) ? File.GetLastWriteTimeUtc(settingsPath) : null;
+const int AppBuffer = 25;      // 17 ms jitter buffer + 8 ms for app capture's uneven packets
+const int DeviceBuffer = 17;
 
 var BF = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static;
 var outT = typeof(AudioEngine).GetNestedType("Output", BF)!;
@@ -47,8 +49,8 @@ for (int i = 0; i < 480; i++)
 }
 
 // Synthetic timelines shaped like the measurements: packets every 10 ms arriving late by an exponential amount
-// (app capture: mean 0.6 ms, capped at 3.3 ms; whole device: up to 0.2 ms); output reads every 10 ms, now and then
-// 0.7 ms late; the two clocks 0.0003 % apart. Replayed at 40 phases across one 10 ms cycle.
+// (app capture: mean 0.6 ms, capped at 3.3 ms, the latest measured; whole device: up to 0.2 ms); output reads every
+// 10 ms, now and then 0.7 ms late; the two clocks 0.0003 % apart. Replayed at 40 phases across one 10 ms cycle.
 (int Dry, double MinSlack) Replay(int targetMs, bool appJitter, double phaseMs, double seconds, double gapAtS = -1, double gapS = 0, int seed = 1)
 {
     var r = new Random(seed);
@@ -77,29 +79,29 @@ for (int i = 0; i < 480; i++)
     return (dry, minSlack);
 }
 
-// ---- A) app capture at the new buffer (17 + 10 = 27 ms): clean at every phase ----
+// ---- A) app capture at the new buffer (25 ms): clean at every phase ----
 {
     int bad = 0, total = 0; double minSlack = 1e9;
     for (int ph = 0; ph < 40; ph++)
     {
-        var (d, s) = Replay(27, true, ph * 0.25, 60, seed: ph + 1);
+        var (d, s) = Replay(AppBuffer, true, ph * 0.25, 60, seed: ph + 1);
         if (d > 0) bad++; total += d; minSlack = Math.Min(minSlack, s);
     }
-    Console.WriteLine($"      app capture, 27 ms: {bad}/40 phases with a short read, {total} short reads, lowest slack {minSlack:F1} ms");
-    Check(total == 0 && minSlack >= 3, "app capture with 27 ms: no short read at any of 40 phases, at least 3 ms to spare");
+    Console.WriteLine($"      app capture, {AppBuffer} ms: {bad}/40 phases with a short read, {total} short reads, lowest slack {minSlack:F1} ms");
+    Check(total == 0 && minSlack >= 3, $"app capture with {AppBuffer} ms: no short read at any of 40 phases, at least 3 ms to spare");
 
     int bad17 = 0, total17 = 0;
-    for (int ph = 0; ph < 40; ph++) { var (d, _) = Replay(17, true, ph * 0.25, 60, seed: ph + 1); if (d > 0) bad17++; total17 += d; }
-    Console.WriteLine($"      for comparison, app capture at the old 17 ms (with the new refill): {bad17}/40 phases, {total17} short reads");
-    Check(total17 > 0, "the replay is sensitive: the old 17 ms does run short with app-capture timing");
+    for (int ph = 0; ph < 40; ph++) { var (d, _) = Replay(DeviceBuffer, true, ph * 0.25, 60, seed: ph + 1); if (d > 0) bad17++; total17 += d; }
+    Console.WriteLine($"      for comparison, app capture at the old 17 ms (with the refill): {bad17}/40 phases, {total17} short reads");
+    Check(total17 > 0, "the replay is sensitive: 17 ms does run short with app-capture timing");
 }
 
-// ---- B) whole-device capture keeps 17 ms (the speakers/headphones sync stays as tuned) and runs clean ----
+// ---- B) whole-device capture keeps 17 ms (the speakers/headphones sync stays as tuned) ----
 {
     int bad = 0, total = 0; double minSlack = 1e9;
     for (int ph = 0; ph < 40; ph++)
     {
-        var (d, s) = Replay(17, false, ph * 0.25, 60, seed: 100 + ph);
+        var (d, s) = Replay(DeviceBuffer, false, ph * 0.25, 60, seed: 100 + ph);
         if (d > 0) bad++; total += d; minSlack = Math.Min(minSlack, s);
     }
     Console.WriteLine($"      whole device, 17 ms: {bad}/40 phases with a short read, {total} short reads, lowest slack {minSlack:F1} ms");
@@ -109,22 +111,22 @@ for (int i = 0; i < 480; i++)
 
 // ---- C) the first packet lands exactly at the target ----
 {
-    foreach (int target in new[] { 17, 27, 117 })
+    foreach (int target in new[] { DeviceBuffer, AppBuffer, 117 })
     {
         var (input, _, buffer, _) = NewTap(target);
         push.Invoke(null, new object[] { input, packet, packet.Length });
         double level = buffer.BufferedDuration.TotalMilliseconds;
-        Check(Math.Abs(level - target) < 0.5, $"first packet, target {target} ms: buffer at {level:F1} ms (was target + one packet)");
+        Check(Math.Abs(level - target) < 0.5, $"first packet, target {target} ms: buffer at {level:F1} ms");
     }
 }
 
 // ---- D) after a gap in the source (e.g. a pause), the buffer is back at its target at once ----
 {
     int worst = 0;
-    for (int ph = 0; ph < 40; ph += 4) worst = Math.Max(worst, Replay(27, true, ph * 0.25, 20, gapAtS: 8, gapS: 2, seed: 7 + ph).Dry);
+    for (int ph = 0; ph < 40; ph += 4) worst = Math.Max(worst, Replay(AppBuffer, true, ph * 0.25, 20, gapAtS: 8, gapS: 2, seed: 7 + ph).Dry);
     Check(worst <= 1, $"2 s gap in app audio, then it resumes: at most 1 short read afterwards (worst phase: {worst})");
 
-    var (input, _, buffer, rate) = NewTap(17);
+    var (input, _, buffer, rate) = NewTap(DeviceBuffer);
     push.Invoke(null, new object[] { input, packet, packet.Length });
     var outBuf = new float[960];
     for (int i = 0; i < 5; i++) rate.Read(outBuf, 0, outBuf.Length);   // source stopped: reads run dry
@@ -148,10 +150,10 @@ for (int i = 0; i < 480; i++)
             Thread.Sleep(1500); int u0 = engine.Underruns; Thread.Sleep(15000);
             int u = engine.Underruns - u0;
             engine.SyncProcesses(new HashSet<int>());   // a stray call must not switch it to the app-capture buffer
-            Check(engine.CopyBufferMs == 17, "whole device live: an app sync call leaves its 17 ms buffer alone");
+            Check(engine.CopyBufferMs == DeviceBuffer, "whole device live: an app sync call leaves its 17 ms buffer alone");
             engine.SetDelay(20);
             Console.WriteLine($"      whole device: buffer {b0} ms, {engine.OutputInfo}, short reads in 15 s: {u}, with 20 ms delay: {engine.CopyBufferMs} ms, fault {engine.Fault ?? "none"}");
-            Check(b0 == 17 && engine.CopyBufferMs == 37 && engine.Fault == null, "whole device live: 17 ms buffer as before, delay adds on top, no fault");
+            Check(b0 == DeviceBuffer && engine.CopyBufferMs == DeviceBuffer + 20 && engine.Fault == null, "whole device live: 17 ms buffer as before, delay adds on top, no fault");
             Check(u == 0, "whole device live: no short read in 15 s");
         }
         {
@@ -165,7 +167,7 @@ for (int i = 0; i < 480; i++)
             engine.SyncProcesses(pids);
             int b = engine.CopyBufferMs;
             engine.SetDelay(5);
-            Check(b == 27 && engine.CopyBufferMs == 32, $"app capture live: buffer {b} ms (17 + 10), delay adds on top ({engine.CopyBufferMs} ms with 5 ms)");
+            Check(b == AppBuffer && engine.CopyBufferMs == AppBuffer + 5, $"app capture live: buffer {b} ms (17 + 8), delay adds on top ({engine.CopyBufferMs} ms with 5 ms)");
             engine.SetDelay(0);
             if (pids.Count == 0) Console.WriteLine("      (no app playing on the default output: app capture run skipped)");
             else

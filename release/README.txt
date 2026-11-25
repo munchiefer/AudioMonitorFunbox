@@ -1,4 +1,4 @@
-AudioFunbox and AudioMonitor 2.0.1
+AudioFunbox and AudioMonitor 2.0.2
 ==================================
 
 Play your PC audio on your speakers and your headphones at the same time, combine up to four
@@ -7,7 +7,7 @@ microphones/inputs into one for Discord, add fun voice effects, and (AudioFunbox
 
 Two editions, same program:
   - AudioFunbox.exe   for Rocksmith Real Tone cable players: Speaker copy, Microphones, Fun box and
-                      the Pedalboard. Comes with the installer.
+                      the Pedalboard. Installer or portable exe.
   - AudioMonitor.exe  the same without the Pedalboard tab. Installer or portable exe.
   Only one of them runs at a time (starting the other one tells you so). They share their settings
   and the "Start with Windows" entry, so you can switch between them without setting anything up again.
@@ -23,13 +23,13 @@ Install, or run portable
     Run it again later to switch: with AudioMonitor installed it offers "Upgrade to the full version",
     with AudioFunbox installed "Remove pedalboard"; both also offer "Uninstall" and "Update or repair".
     Switching keeps all your settings. Uninstall asks whether to delete your settings too (default: keep).
-  - Portable: AudioMonitor.exe runs as it is, from any folder. Nothing to install. (AudioFunbox.exe does
-    too, if you copy it out of an installed folder or build it yourself.)
+  - Portable: AudioFunbox.exe and AudioMonitor.exe run as they are, from any folder. Nothing to install.
+    Download them from the release page: https://github.com/munchiefer/AudioMonitorFunbox/releases/latest
 
 Use
 ---
-Run AudioFunbox or AudioMonitor. A headphones icon (white on dark gray) appears in the system tray, with a
-green dot while something is running.
+Run AudioFunbox or AudioMonitor. Its icon (a yellow and white speaker box with headphones) appears in the
+system tray, with a green dot while something is running.
   - Left-click the icon for Settings. Right-click it for: Monitoring on, Mic mixer on, Mic mode,
     Pedalboard on (AudioFunbox), Start with Windows, Exit.
   - Your devices are remembered. Unplug your headphones and the choice stays (shown as
@@ -51,8 +51,8 @@ Speaker copy tab
   - "Delay the copy": when the source device is the slower one (e.g. Bluetooth headphones set as the
     Windows default, copied to your speakers), raise this until both sound as one. Applies instantly.
   - "Only these apps": copy only selected apps (their child processes are included). Windows delivers
-    app audio less evenly than a whole device, so this mode keeps 10 ms more audio buffered: the copy is
-    about 10 ms later, which avoids crackles.
+    app audio less evenly than a whole device, so this mode keeps 8 ms more audio buffered: the copy is
+    about 8 ms later, which avoids crackles.
 
 Microphones tab (use several inputs as one mic, e.g. in Discord)
   - Needs VB-CABLE, a free virtual audio cable driver from VB-Audio (https://vb-audio.com/Cable/).
@@ -168,7 +168,7 @@ Tip: keep the exes in their own folder that only you can write to, e.g. %LOCALAP
 
 The exes aren't code-signed, so Windows SmartScreen may warn on first run ("More info" > "Run anyway").
 Check that your copy is genuine with its SHA-256 hash (PowerShell: Get-FileHash AudioFunbox.exe):
-  AudioFunbox.exe   E20A4FCFC6FD367A0E72A6313A661F8F3D95E1374D3768DB948AD5D147ED30E5
-  AudioMonitor.exe  33569787DFF031F9DC56CE17C35EB75F4724EBF55977CEF2436D4209DA9B819D
+  AudioFunbox.exe   5CE5352CA60D0BA17527B259BC7684599E8B625AAF3BCEEA0C57040DC490CCC5
+  AudioMonitor.exe  EA57D785D40827C27973C8B13D2C8457DF46D267A41964C6D22020688A81FF8D
   The installer's own hash is listed on the project page:
   https://github.com/munchiefer/AudioMonitorFunbox

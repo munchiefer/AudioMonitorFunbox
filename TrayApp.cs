@@ -863,7 +863,7 @@ sealed class TrayApp : ApplicationContext
         base.ExitThreadCore();
     }
 
-    /// <summary>The app icon (white headphones on dark gray, embedded app.ico) at the closest size available.</summary>
+    /// <summary>The app icon (the embedded app.ico, built from assets/icon-master.png) at the closest size available.</summary>
     public static Icon AppIcon(Size size)
     {
         try

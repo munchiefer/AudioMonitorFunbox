@@ -12,11 +12,11 @@ Copyright 2020 Mark Heath. MIT License. https://github.com/naudio/NAudio
 Copyright (c) .NET Foundation and Contributors. MIT License. https://github.com/dotnet/runtime,
 https://github.com/dotnet/winforms. The exes are self-contained, so they include the .NET runtime.
 
-## Material Icons "headphones" (the app icon)
+## The app icon
 
-By Google. Apache License, Version 2.0. https://github.com/google/material-design-icons
-The icon (`app.ico`, built by `assets/make_icon.py` from `assets/headphones.svg`) draws this glyph in white on a
-dark gray square. A copy of the Apache License 2.0 is at https://www.apache.org/licenses/LICENSE-2.0.
+Original artwork made for this project (`assets/icon-master.png`; `app.ico` is built from it by
+`assets/make_icon.py`), generated with Google Gemini and chosen by munchiefer. No third-party license applies.
+Up to 2.0.1 the icon was Google's Material Icons "headphones" glyph (Apache License 2.0).
 
 ## Trademarks
 

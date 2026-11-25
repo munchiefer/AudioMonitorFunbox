@@ -3,6 +3,16 @@
 Newest first. Each published build bumps `<Version>` in `AudioMonitor.csproj`; `release/README.txt` carries the
 current version and the SHA-256 of each published exe.
 
+## 2.0.2 (2026-11-25)
+- **New app icon**, the "Sonic Funbox": a speaker box with headphones and a spark, for the exe, the installer,
+  the Start menu, the settings window and the tray (where the green dot still shows while something runs).
+  Both editions use it. It has a dark outline, so it reads on light and dark taskbars.
+- **Speaker copy, "Only these apps": 2 ms less lag.** App capture now keeps 25 ms instead of 27. A replay of
+  measured timings is still clean at every phase, with 3.8 ms to spare (the latest packet measured was 3.3 ms
+  late). Copying a whole device is unchanged (17 ms).
+- **Portable AudioFunbox:** the GitHub release page now offers `AudioFunbox.exe` as a portable download too, next
+  to the installer and the portable `AudioMonitor.exe`.
+
 ## 2.0.1 (2026-11-21)
 - **Speaker copy, "Only these apps": no more crackles.** Windows delivers app capture's 10 ms packets unevenly
   (measured 7 to 12.75 ms apart; a whole device: 9.8 to 10.2 ms). At some moments, which come and go as the

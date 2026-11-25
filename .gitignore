@@ -15,3 +15,5 @@ history/
 
 # Reference recordings made on the developer's own hardware (analysis input, not needed to build or test).
 tests/data/
+# Working files (icon drafts and the like); what the build uses is copied into assets/.
+tests/assets/
