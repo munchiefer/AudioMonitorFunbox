@@ -1,14 +1,15 @@
-AudioFunbox and AudioMonitor 2.0.2
-==================================
+Sonic Funbox and Sonic Funbox Lite 2.1.0
+========================================
 
 Play your PC audio on your speakers and your headphones at the same time, combine up to four
-microphones/inputs into one for Discord, add fun voice effects, and (AudioFunbox) play your guitar
+microphones/inputs into one for Discord, add fun voice effects, and (Sonic Funbox) play your guitar
 (Rocksmith Real Tone cable) through a pedalboard.
 
 Two editions, same program:
-  - AudioFunbox.exe   for Rocksmith Real Tone cable players: Speaker copy, Microphones, Fun box and
-                      the Pedalboard. Installer or portable exe.
-  - AudioMonitor.exe  the same without the Pedalboard tab. Installer or portable exe.
+  - SonicFunbox.exe      for Rocksmith Real Tone cable players: Speaker copy, Microphones, Fun box and
+                         the Pedalboard. Installer or portable exe.
+  - SonicFunboxLite.exe  the same without the Pedalboard tab. Installer or portable exe.
+  (Up to 2.0.2 they were called AudioFunbox and AudioMonitor. Upgrading keeps your settings.)
   Only one of them runs at a time (starting the other one tells you so). They share their settings
   and the "Start with Windows" entry, so you can switch between them without setting anything up again.
 
@@ -17,21 +18,22 @@ Requirements: Windows 10 version 2004 or newer, or Windows 11 (64-bit). Nothing 
 
 Install, or run portable
 ------------------------
-  - Installer (AudioMonitorFunbox-Setup-<version>.exe): pick AudioMonitor or AudioFunbox. It installs for
-    your Windows user only (no administrator rights) into %LOCALAPPDATA%\Programs\AudioMonitorFunbox, with a
+  - Installer (SonicFunbox-Setup-<version>.exe): pick Sonic Funbox Lite or Sonic Funbox. It installs for
+    your Windows user only (no administrator rights) into %LOCALAPPDATA%\Programs\SonicFunbox (an older
+    install is upgraded in its own folder), with a
     Start menu shortcut and optional desktop shortcut and "Start with Windows".
-    Run it again later to switch: with AudioMonitor installed it offers "Upgrade to the full version",
-    with AudioFunbox installed "Remove pedalboard"; both also offer "Uninstall" and "Update or repair".
+    Run it again later to switch: with Sonic Funbox Lite installed it offers "Upgrade to the full version",
+    with Sonic Funbox installed "Remove pedalboard"; both also offer "Uninstall" and "Update or repair".
     Switching keeps all your settings. Uninstall asks whether to delete your settings too (default: keep).
-  - Portable: AudioFunbox.exe and AudioMonitor.exe run as they are, from any folder. Nothing to install.
-    Download them from the release page: https://github.com/munchiefer/AudioMonitorFunbox/releases/latest
+  - Portable: SonicFunbox.exe and SonicFunboxLite.exe run as they are, from any folder. Nothing to install.
+    Download them from the release page: https://github.com/munchiefer/SonicFunbox/releases/latest
 
 Use
 ---
-Run AudioFunbox or AudioMonitor. Its icon (a yellow and white speaker box with headphones) appears in the
+Run Sonic Funbox or Sonic Funbox Lite. Its icon (a yellow and white speaker box with headphones) appears in the
 system tray, with a green dot while something is running.
   - Left-click the icon for Settings. Right-click it for: Monitoring on, Mic mixer on, Mic mode,
-    Pedalboard on (AudioFunbox), Start with Windows, Exit.
+    Pedalboard on (Sonic Funbox), Start with Windows, Exit.
   - Your devices are remembered. Unplug your headphones and the choice stays (shown as
     "(disconnected)"); plug them back in and they're used again within a second or two, without
     picking them again. If Windows gives a device a new ID (after an update, a driver reinstall or
@@ -96,7 +98,7 @@ Fun box tab (voice effects on what Discord hears)
       Push-to-talk: the effects play only while you hold it; otherwise Discord hears your normal voice.
   - Changes apply instantly. Hear yourself with Discord's Settings > Voice & Video > Mic Test.
 
-Pedalboard tab (AudioFunbox only: your guitar or bass through pedals)
+Pedalboard tab (Sonic Funbox only: your guitar or bass through pedals)
   - Instrument: Guitar (6 strings), Bass (4 strings) or Bass (5 strings). Guitar and bass each keep their
     own pedal sound (the two basses share one): switching brings that sound back. Bass mode keeps the low
     notes (low E, low B, drop tunings) that the guitar voicing cuts. The presets and tunings follow it.
@@ -152,23 +154,25 @@ What it does and doesn't do
     keystrokes, and every key still reaches the app you're using. With no hotkeys set, nothing listens.
   - Optional VB-CABLE update check: OFF unless you tick it and confirm the warning. When on, about
     once a day it makes one HTTPS request to vb-audio.com/Cable/ to read the latest version number.
-    It sends nothing about you or your PC (only "AudioMonitor/<version>" as the app name), follows no
+    It sends nothing about you or your PC (only "SonicFunbox/<version>" as the app name), follows no
     redirects, and never downloads or installs anything. Untick it to stop all network access.
-  - Stores settings in %LOCALAPPDATA%\AudioMonitor\settings.json (both editions; 1.0.0 used %APPDATA%,
+  - Stores settings in %LOCALAPPDATA%\AudioMonitor\settings.json (both editions, the folder kept its
+    pre-2.1 name; 1.0.0 used %APPDATA%,
     moved automatically). To recognise your devices it saves their names and hardware model codes (the
     ones Device Manager shows) next to your choices; nothing else about your PC.
-  - "Start with Windows" puts a shortcut named AudioMonitorFunbox in your Startup folder
+  - "Start with Windows" puts a shortcut named SonicFunbox in your Startup folder
     (%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup), so Windows lists it under Startup apps
     with the app's name and icon. Shared by both editions: it starts the edition you ticked it in last.
     If the exe has moved, the next start points the shortcut at it again. Untick it to remove the shortcut.
-    (Up to 1.6.0 this was a registry value under HKCU\...\Run; it's turned into the shortcut automatically.)
+    (Up to 1.6.0 this was a registry value under HKCU\...\Run, up to 2.0.2 a shortcut named
+    AudioMonitorFunbox; both are turned into the new shortcut automatically.)
   - To uninstall: untick "Start with Windows", exit, then delete the exe(s) and %LOCALAPPDATA%\AudioMonitor.
 
-Tip: keep the exes in their own folder that only you can write to, e.g. %LOCALAPPDATA%\Programs\AudioMonitor.
+Tip: keep the exes in their own folder that only you can write to, e.g. %LOCALAPPDATA%\Programs\SonicFunbox.
 
 The exes aren't code-signed, so Windows SmartScreen may warn on first run ("More info" > "Run anyway").
-Check that your copy is genuine with its SHA-256 hash (PowerShell: Get-FileHash AudioFunbox.exe):
-  AudioFunbox.exe   5CE5352CA60D0BA17527B259BC7684599E8B625AAF3BCEEA0C57040DC490CCC5
-  AudioMonitor.exe  EA57D785D40827C27973C8B13D2C8457DF46D267A41964C6D22020688A81FF8D
+Check that your copy is genuine with its SHA-256 hash (PowerShell: Get-FileHash SonicFunbox.exe):
+  SonicFunbox.exe      6477AB47201D0DC9FFB6EBD6465A7B428D31B96DFA6E3016473F1617CFF3B522
+  SonicFunboxLite.exe  AAA3CF94500AE1C75231DF38BCC2EEFBEDAF2D7289AA36B868F08A674E7B6EE3
   The installer's own hash is listed on the project page:
-  https://github.com/munchiefer/AudioMonitorFunbox
+  https://github.com/munchiefer/SonicFunbox

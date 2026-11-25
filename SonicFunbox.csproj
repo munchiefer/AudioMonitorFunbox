@@ -11,7 +11,7 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
-    <Version>2.0.2</Version>
+    <Version>2.1.0</Version>
     <!-- The C# namespace stays AudioMonitor (internal; the files say so). -->
     <RootNamespace>AudioMonitor</RootNamespace>
     <!-- Plain "1.6.1", without the git commit appended (builds happen before their commit exists). -->

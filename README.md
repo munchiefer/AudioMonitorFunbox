@@ -68,16 +68,16 @@ Same program, same settings: only one of them runs at a time, and you can switch
 
 ## Download
 
-Version 2.0.2. Pick one (all files are also on the [latest release page](https://github.com/munchiefer/AudioMonitorFunbox/releases/latest)):
+Version 2.1.0. Pick one (all files are also on the [latest release page](https://github.com/munchiefer/SonicFunbox/releases/latest)):
 
 | File | What it is | SHA-256 |
 |---|---|---|
-| [`AudioMonitorFunbox-Setup-2.0.2.exe`](https://github.com/munchiefer/AudioMonitorFunbox/releases/download/v2.0.2/AudioMonitorFunbox-Setup-2.0.2.exe) | **Installer**: choose AudioMonitor, or AudioFunbox for the Rocksmith Real Tone cable; run it again to upgrade, remove the pedalboard or uninstall | `1EE6FA2998E7D8DF742EC80C8F4CB3BC00CC417965586A2F4055EB2290B65466` |
-| [`AudioFunbox.exe`](https://github.com/munchiefer/AudioMonitorFunbox/releases/download/v2.0.2/AudioFunbox.exe) | AudioFunbox, portable: just run it (everything, including the Pedalboard) | `5CE5352CA60D0BA17527B259BC7684599E8B625AAF3BCEEA0C57040DC490CCC5` |
-| [`AudioMonitor.exe`](https://github.com/munchiefer/AudioMonitorFunbox/releases/download/v2.0.2/AudioMonitor.exe) | AudioMonitor, portable: just run it (no Pedalboard) | `EA57D785D40827C27973C8B13D2C8457DF46D267A41964C6D22020688A81FF8D` |
+| [`SonicFunbox-Setup-2.1.0.exe`](https://github.com/munchiefer/SonicFunbox/releases/download/v2.1.0/SonicFunbox-Setup-2.1.0.exe) | **Installer**: choose Sonic Funbox Lite, or Sonic Funbox for the Rocksmith Real Tone cable; run it again to upgrade, remove the pedalboard or uninstall | `718FDD8F07B810D4A571D3A5B19EA393F0DC20EAE63733FA4FF3674E16813C7B` |
+| [`SonicFunbox.exe`](https://github.com/munchiefer/SonicFunbox/releases/download/v2.1.0/SonicFunbox.exe) | Sonic Funbox, portable: just run it (everything, including the Pedalboard) | `6477AB47201D0DC9FFB6EBD6465A7B428D31B96DFA6E3016473F1617CFF3B522` |
+| [`SonicFunboxLite.exe`](https://github.com/munchiefer/SonicFunbox/releases/download/v2.1.0/SonicFunboxLite.exe) | Sonic Funbox Lite, portable: just run it (no Pedalboard) | `AAA3CF94500AE1C75231DF38BCC2EEFBEDAF2D7289AA36B868F08A674E7B6EE3` |
 
-The installer and the portable AudioMonitor are also kept in this repository
-([`release/`](release/AudioMonitorFunbox-Setup-2.0.2.exe), [`portable versions/`](portable%20versions/AudioMonitor.exe)).
+The installer and the portable Sonic Funbox Lite are also kept in this repository
+([`release/`](release/SonicFunbox-Setup-2.1.0.exe), [`portable versions/`](portable%20versions/SonicFunboxLite.exe)).
 
 The installer needs no administrator rights: it installs for your Windows user only. Nothing is code-signed, so
 SmartScreen may warn on first run ("More info" > "Run anyway"); check a download with `Get-FileHash <file>` in
@@ -115,7 +115,7 @@ The installer is built with [Inno Setup 6](https://jrsoftware.org/isinfo.php) fr
 (after publishing both exes into `portable versions`; only `SonicFunboxLite.exe` is kept in git there):
 
 ```
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=2.0.2 installer\SonicFunbox.iss
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=2.1.0 installer\SonicFunbox.iss
 ```
 
 The icon (`app.ico`) is generated from `assets/icon-master.png` by `python assets/make_icon.py` (needs Pillow).

@@ -3,6 +3,17 @@
 Newest first. Each published build bumps `<Version>` in `SonicFunbox.csproj`; `release/README.txt` carries the
 current version and the SHA-256 of each published exe.
 
+## 2.1.0 (2026-11-26)
+- **New name: Sonic Funbox**, after the icon. The two editions are now **Sonic Funbox** (everything, with the
+  Pedalboard; `SonicFunbox.exe`) and **Sonic Funbox Lite** (no Pedalboard; `SonicFunboxLite.exe`). They were
+  AudioFunbox and AudioMonitor. Window titles, tray text, messages, the installer, the Start menu entries and the
+  GitHub repository (`munchiefer/SonicFunbox`) use the new names. Nothing about how the app sounds or behaves changed.
+- **Upgrading keeps everything:** settings stay where they were (`%LOCALAPPDATA%\AudioMonitor`), the installer
+  upgrades an old install and removes the old exe names, and the "Start with Windows" shortcut is renamed
+  (`AudioMonitorFunbox.lnk` becomes `SonicFunbox.lnk`) the first time the new version starts. A portable old exe
+  and a new one never run together (the single-instance lock keeps its old name on purpose).
+- The README now has a "How it was made" section.
+
 ## 2.0.2 (2026-11-25)
 - **New app icon**, the "Sonic Funbox": a speaker box with headphones and a spark, for the exe, the installer,
   the Start menu, the settings window and the tray (where the green dot still shows while something runs).
