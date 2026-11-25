@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/icon-master.png" width="200" alt="Sonic Funbox logo: a speaker box with headphones and a spark"></p>
+
 # Sonic Funbox
 
 A small Windows tray app for people who play, stream and chat at the same time.
