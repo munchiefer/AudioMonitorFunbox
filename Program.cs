@@ -9,7 +9,7 @@ static class Program
         if (!firstInstance)
         {
             // Either edition may hold the lock: say so, instead of quietly doing nothing.
-            MessageBox.Show("AudioFunbox or AudioMonitor is already running (only one of them runs at a time).\n\n" +
+            MessageBox.Show("Sonic Funbox or Sonic Funbox Lite is already running (only one of them runs at a time).\n\n" +
                             "Use its tray icon, or exit it there first to start this one.",
                             Edition.Name, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;

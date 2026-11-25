@@ -111,7 +111,7 @@ sealed partial class SettingsForm : Form
         pinIcons.Images.Add(PinIcon(false));
         pinIcons.Images.Add(PinIcon(true));
         var names = Settings.TabNames;
-        // AudioMonitor builds the Pedalboard page too (its controls are wired up), it just never shows it.
+        // Sonic Funbox Lite builds the Pedalboard page too (its controls are wired up), it just never shows it.
         pages = Edition.HasPedalboard
             ? new[] { Page(names[0], speakerPage), Page(names[1], micPage), Page(names[2], funPage), Page(names[3], pedalPage) }
             : new[] { Page(names[0], speakerPage), Page(names[1], micPage), Page(names[2], funPage) };

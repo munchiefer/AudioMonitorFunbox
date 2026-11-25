@@ -1,6 +1,6 @@
-# Audio Monitor: version history
+# Sonic Funbox: version history
 
-Newest first. Each published build bumps `<Version>` in `AudioMonitor.csproj`; `release/README.txt` carries the
+Newest first. Each published build bumps `<Version>` in `SonicFunbox.csproj`; `release/README.txt` carries the
 current version and the SHA-256 of each published exe.
 
 ## 2.0.2 (2026-11-25)

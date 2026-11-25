@@ -2,8 +2,8 @@
 // 1.5.0 checks: device fingerprints, settings migration, and both editions' settings window.
 // Makes no sound, opens no audio stream, never touches the real settings.json (no TrayApp is constructed: the
 // window test uses an uninitialized fake whose timers never run, so nothing can call Settings.Save()).
-// Part B reads the real device list (read-only). Run twice: plain (AudioFunbox) and with
-// -p:DefineConstants=MONITOR_EDITION (AudioMonitor). Arg 0 = folder for the window screenshot.
+// Part B reads the real device list (read-only). Run twice: plain (Sonic Funbox) and with
+// -p:DefineConstants=MONITOR_EDITION (Sonic Funbox Lite). Arg 0 = folder for the window screenshot.
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;

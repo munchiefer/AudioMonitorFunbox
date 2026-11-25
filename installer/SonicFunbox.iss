@@ -1,12 +1,14 @@
-; Installer for AudioMonitor / AudioFunbox (Inno Setup 6).
+; Installer for Sonic Funbox / Sonic Funbox Lite (Inno Setup 6).
 ; Build from the project root, after publishing both exes into "portable versions":
-;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=x.y.z installer\AudioMonitorFunbox.iss
+;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=x.y.z installer\SonicFunbox.iss
 ;
-; First run: pick AudioMonitor (simple) or AudioFunbox (full, with the Pedalboard).
-; Run again with AudioMonitor installed:  Upgrade to the full version / Uninstall / Update AudioMonitor.
-; Run again with AudioFunbox installed:   Remove pedalboard / Uninstall / Update AudioFunbox.
+; First run: pick Sonic Funbox Lite (simple) or Sonic Funbox (full, with the Pedalboard).
+; Run again with Lite installed:  Upgrade to the full version / Uninstall / Update Sonic Funbox Lite.
+; Run again with Sonic Funbox installed:  Remove pedalboard / Uninstall / Update Sonic Funbox.
+; Up to 2.0.2 the editions were called AudioMonitor and AudioFunbox (exe AudioMonitor.exe / AudioFunbox.exe);
+; the AppId, the state key below and the app's lock name are kept, so this installer upgrades those installs.
 ; Installs for the current Windows user only (no administrator rights). Silent use: /SILENT or /VERYSILENT,
-; with /EDITION=Monitor or /EDITION=Funbox to choose (default: keep what's installed, else Monitor).
+; with /EDITION=Monitor (or Lite) or /EDITION=Funbox to choose (default: keep what's installed, else Lite).
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -14,23 +16,23 @@
 
 [Setup]
 AppId={{6E2C7B1D-4A9F-4C3E-9B58-1F0D7A3E52C4}
-AppName=AudioMonitor Funbox
+AppName=Sonic Funbox
 AppVersion={#AppVersion}
-AppVerName=AudioMonitor Funbox {#AppVersion}
+AppVerName=Sonic Funbox {#AppVersion}
 AppPublisher=munchiefer
-AppPublisherURL=https://github.com/munchiefer/AudioMonitorFunbox
-AppSupportURL=https://github.com/munchiefer/AudioMonitorFunbox/issues
+AppPublisherURL=https://github.com/munchiefer/SonicFunbox
+AppSupportURL=https://github.com/munchiefer/SonicFunbox/issues
 VersionInfoVersion={#AppVersion}
-DefaultDirName={autopf}\AudioMonitorFunbox
+DefaultDirName={autopf}\SonicFunbox
 PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
 DisableWelcomePage=yes
 WizardStyle=modern
 SetupIconFile=..\app.ico
-UninstallDisplayName=AudioMonitor Funbox
+UninstallDisplayName=Sonic Funbox
 UninstallDisplayIcon={app}\{code:ExeName}
 OutputDir=..\release
-OutputBaseFilename=AudioMonitorFunbox-Setup-{#AppVersion}
+OutputBaseFilename=SonicFunbox-Setup-{#AppVersion}
 Compression=lzma2/ultra64
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
@@ -46,29 +48,38 @@ Name: desktopicon; Description: "Create a desktop shortcut"; Flags: unchecked
 Name: startup; Description: "Start with Windows"; Flags: unchecked
 
 [Files]
-Source: "..\portable versions\AudioFunbox.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: WantFunbox
-Source: "..\portable versions\AudioMonitor.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: WantMonitor
+Source: "..\portable versions\SonicFunbox.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: WantFunbox
+Source: "..\portable versions\SonicFunboxLite.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: WantMonitor
 Source: "..\release\README.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [InstallDelete]
 ; Switching editions: the other exe and its shortcuts go.
-Type: files; Name: "{app}\AudioMonitor.exe"; Check: WantFunbox
-Type: files; Name: "{app}\AudioFunbox.exe"; Check: WantMonitor
-Type: files; Name: "{autoprograms}\AudioMonitor.lnk"; Check: WantFunbox
-Type: files; Name: "{autoprograms}\AudioFunbox.lnk"; Check: WantMonitor
-Type: files; Name: "{autodesktop}\AudioMonitor.lnk"; Check: WantFunbox
-Type: files; Name: "{autodesktop}\AudioFunbox.lnk"; Check: WantMonitor
+Type: files; Name: "{app}\SonicFunboxLite.exe"; Check: WantFunbox
+Type: files; Name: "{app}\SonicFunbox.exe"; Check: WantMonitor
+Type: files; Name: "{autoprograms}\Sonic Funbox Lite.lnk"; Check: WantFunbox
+Type: files; Name: "{autoprograms}\Sonic Funbox.lnk"; Check: WantMonitor
+Type: files; Name: "{autodesktop}\Sonic Funbox Lite.lnk"; Check: WantFunbox
+Type: files; Name: "{autodesktop}\Sonic Funbox.lnk"; Check: WantMonitor
+; Upgrading from 2.0.2 and earlier: the old exe names and shortcuts go (the app turns an old Startup
+; shortcut into the new one at its first start; ticking "Start with Windows" here replaces it right away).
+Type: files; Name: "{app}\AudioMonitor.exe"
+Type: files; Name: "{app}\AudioFunbox.exe"
+Type: files; Name: "{autoprograms}\AudioMonitor.lnk"
+Type: files; Name: "{autoprograms}\AudioFunbox.lnk"
+Type: files; Name: "{autodesktop}\AudioMonitor.lnk"
+Type: files; Name: "{autodesktop}\AudioFunbox.lnk"
+Type: files; Name: "{userstartup}\AudioMonitorFunbox.lnk"; Tasks: startup
 
 [Icons]
 Name: "{autoprograms}\{code:EditionName}"; Filename: "{app}\{code:ExeName}"
 Name: "{autodesktop}\{code:EditionName}"; Filename: "{app}\{code:ExeName}"; Tasks: desktopicon
 ; "Start with Windows": the same Startup-folder shortcut the app's own tray option uses (Startup.cs).
-Name: "{userstartup}\AudioMonitorFunbox"; Filename: "{app}\{code:ExeName}"; WorkingDir: "{app}"; Tasks: startup
+Name: "{userstartup}\SonicFunbox"; Filename: "{app}\{code:ExeName}"; WorkingDir: "{app}"; Tasks: startup
 
 [Registry]
-; Which edition is installed, so the next run of this installer knows what to offer.
+; (The key keeps its pre-2.1 name so an upgrade finds the old install.) Which edition is installed, so the next run of this installer knows what to offer.
 Root: HKCU; Subkey: "Software\AudioMonitorFunbox"; ValueType: string; ValueName: "Edition"; ValueData: "{code:EditionKey}"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\AudioMonitorFunbox"; ValueType: string; ValueName: "Version"; ValueData: "{#AppVersion}"
 Root: HKCU; Subkey: "Software\AudioMonitorFunbox"; ValueType: string; ValueName: "InstallDir"; ValueData: "{app}"
@@ -91,12 +102,12 @@ var
 
 function ExeFor(Edition: String): String;
 begin
-  if Edition = 'Funbox' then Result := 'AudioFunbox.exe' else Result := 'AudioMonitor.exe';
+  if Edition = 'Funbox' then Result := 'SonicFunbox.exe' else Result := 'SonicFunboxLite.exe';
 end;
 
 function NameFor(Edition: String): String;
 begin
-  if Edition = 'Funbox' then Result := 'AudioFunbox' else Result := 'AudioMonitor';
+  if Edition = 'Funbox' then Result := 'Sonic Funbox' else Result := 'Sonic Funbox Lite';
 end;
 
 function WantFunbox: Boolean;  begin Result := Chosen = 'Funbox';  end;
@@ -105,7 +116,12 @@ function ExeName(Param: String): String;     begin Result := ExeFor(Chosen);  en
 function EditionName(Param: String): String; begin Result := NameFor(Chosen); end;
 function EditionKey(Param: String): String;  begin Result := Chosen;          end;
 
-{ What's installed: trust the saved edition only if its exe is really there. }
+{ What's installed: trust the saved edition only if its exe is really there (the new name, or the name up to 2.0.2). }
+function OldExeFor(Edition: String): String;
+begin
+  if Edition = 'Funbox' then Result := 'AudioFunbox.exe' else Result := 'AudioMonitor.exe';
+end;
+
 procedure DetectInstalled;
 var
   Dir: String;
@@ -115,7 +131,8 @@ begin
   if RegQueryStringValue(HKCU, StateKey, 'Edition', Installed) and
      RegQueryStringValue(HKCU, StateKey, 'InstallDir', Dir) then
   begin
-    if ((Installed <> 'Monitor') and (Installed <> 'Funbox')) or not FileExists(AddBackslash(Dir) + ExeFor(Installed)) then
+    if ((Installed <> 'Monitor') and (Installed <> 'Funbox')) or
+       not (FileExists(AddBackslash(Dir) + ExeFor(Installed)) or FileExists(AddBackslash(Dir) + OldExeFor(Installed))) then
       Installed := ''
     else
       RegQueryStringValue(HKCU, StateKey, 'Version', InstalledVersion);
@@ -131,7 +148,7 @@ begin
   DetectInstalled;
   Param := Uppercase(ExpandConstant('{param:EDITION|}'));
   if Param = 'FUNBOX' then Chosen := 'Funbox'
-  else if Param = 'MONITOR' then Chosen := 'Monitor'
+  else if (Param = 'MONITOR') or (Param = 'LITE') then Chosen := 'Monitor'
   else if Installed <> '' then Chosen := Installed
   else Chosen := 'Monitor';
   Result := True;
@@ -143,8 +160,8 @@ begin
     'Choose the version', 'Which version do you want to install?',
     'Both have the same settings, and you can switch later by running this installer again.',
     True, False);
-  EditionPage.Add('AudioMonitor: speaker copy, microphone mixer for Discord, voice effects');
-  EditionPage.Add('AudioFunbox: everything in AudioMonitor, plus the Pedalboard for guitar or bass (Rocksmith Real Tone cable, audio interface or PC jack)');
+  EditionPage.Add('Sonic Funbox Lite: speaker copy, microphone mixer for Discord, voice effects');
+  EditionPage.Add('Sonic Funbox: everything in Lite, plus the Pedalboard for guitar or bass (Rocksmith Real Tone cable, audio interface or PC jack)');
   if Chosen = 'Funbox' then EditionPage.SelectedValueIndex := 1 else EditionPage.SelectedValueIndex := 0;
 
   MaintenancePage := CreateInputOptionPage(wpWelcome,
@@ -155,15 +172,15 @@ begin
     True, False);
   if Installed = 'Funbox' then
   begin
-    MaintenancePage.Add('Remove pedalboard (switch to AudioMonitor)');
+    MaintenancePage.Add('Remove pedalboard (switch to Sonic Funbox Lite)');
     MaintenancePage.Add('Uninstall');
-    MaintenancePage.Add('Update or repair AudioFunbox ({#AppVersion})');
+    MaintenancePage.Add('Update or repair Sonic Funbox ({#AppVersion})');
   end
   else
   begin
-    MaintenancePage.Add('Upgrade to the full version (AudioFunbox, adds the Pedalboard)');
+    MaintenancePage.Add('Upgrade to the full version (Sonic Funbox, adds the Pedalboard)');
     MaintenancePage.Add('Uninstall');
-    MaintenancePage.Add('Update or repair AudioMonitor ({#AppVersion})');
+    MaintenancePage.Add('Update or repair Sonic Funbox Lite ({#AppVersion})');
   end;
   { Preselect what matches the current choice: "Update or repair" unless /EDITION asked for the other edition.
     Inno also "clicks Next" on this page in silent mode, so this is what a silent run does. }
@@ -226,8 +243,8 @@ var
 begin
   if Installed = '' then Action := 'Install ' + NameFor(Chosen)
   else if Chosen = Installed then Action := 'Update or repair ' + NameFor(Chosen)
-  else if Chosen = 'Funbox' then Action := 'Upgrade to AudioFunbox (adds the Pedalboard)'
-  else Action := 'Remove the Pedalboard: switch to AudioMonitor';
+  else if Chosen = 'Funbox' then Action := 'Upgrade to Sonic Funbox (adds the Pedalboard)'
+  else Action := 'Remove the Pedalboard: switch to Sonic Funbox Lite';
   Result := Action + ' {#AppVersion}' + NewLine + NewLine + MemoDirInfo;
   if MemoTasksInfo <> '' then Result := Result + NewLine + NewLine + MemoTasksInfo;
 end;
@@ -257,7 +274,10 @@ begin
   begin
     { "Start with Windows" set from the app's tray menu: remove it only if it starts this installed copy
       (a portable copy elsewhere keeps its own). }
-    Lnk := ExpandConstant('{userstartup}\AudioMonitorFunbox.lnk');
+    Lnk := ExpandConstant('{userstartup}\SonicFunbox.lnk');
+    if FileExists(Lnk) and (Pos(Lowercase(ExpandConstant('{app}')), Lowercase(ShortcutTarget(Lnk))) = 1) then
+      DeleteFile(Lnk);
+    Lnk := ExpandConstant('{userstartup}\AudioMonitorFunbox.lnk');   { the name up to 2.0.2 }
     if FileExists(Lnk) and (Pos(Lowercase(ExpandConstant('{app}')), Lowercase(ShortcutTarget(Lnk))) = 1) then
       DeleteFile(Lnk);
     { Versions up to 1.6.0 used a registry value instead: same rule. }

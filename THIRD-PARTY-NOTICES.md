@@ -1,6 +1,6 @@
 # Third-party notices
 
-AudioFunbox and AudioMonitor are MIT-licensed (see [LICENSE](LICENSE)). The published exes also contain the
+Sonic Funbox and Sonic Funbox Lite are MIT-licensed (see [LICENSE](LICENSE)). The published exes also contain the
 following third-party work, each under its own license.
 
 ## NAudio (NAudio.Core, NAudio.Wasapi)

@@ -12,14 +12,16 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
 
     <Version>2.0.2</Version>
+    <!-- The C# namespace stays AudioMonitor (internal; the files say so). -->
+    <RootNamespace>AudioMonitor</RootNamespace>
     <!-- Plain "1.6.1", without the git commit appended (builds happen before their commit exists). -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Copyright>Copyright © 2026 munchiefer</Copyright>
   </PropertyGroup>
 
   <!-- Two editions from the same sources (see Edition.cs):
-         dotnet publish -c Release                       AudioFunbox.exe  (everything)
-         dotnet publish -c Release -p:Edition=Monitor    AudioMonitor.exe (no Pedalboard)
+         dotnet publish -c Release                       SonicFunbox.exe     (everything)
+         dotnet publish -c Release -p:Edition=Monitor    SonicFunboxLite.exe (no Pedalboard)
        Each edition builds into its own bin/obj folders, so the two never mix. -->
   <PropertyGroup>
     <Edition Condition="'$(Edition)' == ''">Funbox</Edition>
@@ -27,16 +29,16 @@
     <IntermediateOutputPath>obj\$(Configuration)\$(Edition)\</IntermediateOutputPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Edition)' == 'Monitor'">
-    <AssemblyName>AudioMonitor</AssemblyName>
-    <AssemblyTitle>AudioMonitor</AssemblyTitle>
-    <Product>AudioMonitor</Product>
+    <AssemblyName>SonicFunboxLite</AssemblyName>
+    <AssemblyTitle>Sonic Funbox Lite</AssemblyTitle>
+    <Product>Sonic Funbox Lite</Product>
     <Description>Copy your PC audio to a second device and mix your microphones for Discord, with voice effects.</Description>
     <DefineConstants>$(DefineConstants);MONITOR_EDITION</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Edition)' != 'Monitor'">
-    <AssemblyName>AudioFunbox</AssemblyName>
-    <AssemblyTitle>AudioFunbox</AssemblyTitle>
-    <Product>AudioFunbox</Product>
+    <AssemblyName>SonicFunbox</AssemblyName>
+    <AssemblyTitle>Sonic Funbox</AssemblyTitle>
+    <Product>Sonic Funbox</Product>
     <Description>Copy your PC audio to a second device, mix your microphones for Discord with voice effects, and play your guitar through a pedalboard.</Description>
   </PropertyGroup>
 

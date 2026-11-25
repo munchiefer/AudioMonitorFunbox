@@ -10,8 +10,8 @@ using NAudio.CoreAudioApi.Interfaces;
 var en = new MMDeviceEnumerator();
 string Name(int pid) { try { using var p = Process.GetProcessById(pid); return p.ProcessName; } catch { return "?"; } }
 
-Console.WriteLine("AudioMonitor / AudioFunbox / Rocksmith / Discord processes: " + string.Join(", ", Process.GetProcesses()
-    .Where(p => p.ProcessName.StartsWith("AudioMonitor", StringComparison.OrdinalIgnoreCase) || p.ProcessName.StartsWith("AudioFunbox", StringComparison.OrdinalIgnoreCase)
+Console.WriteLine("Sonic Funbox / Rocksmith / Discord processes: " + string.Join(", ", Process.GetProcesses()
+    .Where(p => p.ProcessName.StartsWith("SonicFunbox", StringComparison.OrdinalIgnoreCase) || p.ProcessName.StartsWith("AudioMonitor", StringComparison.OrdinalIgnoreCase) || p.ProcessName.StartsWith("AudioFunbox", StringComparison.OrdinalIgnoreCase)
              || p.ProcessName.StartsWith("Rocksmith", StringComparison.OrdinalIgnoreCase)
              || p.ProcessName.StartsWith("Discord", StringComparison.OrdinalIgnoreCase))
     .Select(p => $"{p.ProcessName}({p.Id})")));

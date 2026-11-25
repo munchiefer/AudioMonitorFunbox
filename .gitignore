@@ -4,8 +4,9 @@ obj/
 *.user
 .vs/
 
-# Committed binaries: "portable versions/AudioMonitor.exe" and "release/AudioMonitorFunbox-Setup-*.exe".
-# AudioFunbox.exe is shipped inside the installer only: its portable copy stays local (the installer build reads it).
+# Committed binaries: "portable versions/SonicFunboxLite.exe" and "release/SonicFunbox-Setup-*.exe".
+# SonicFunbox.exe is shipped inside the installer only: its portable copy stays local (the installer build reads it).
+portable versions/SonicFunbox.exe
 portable versions/AudioFunbox.exe
 
 # Private, never published: the developer's own working notes and session history.

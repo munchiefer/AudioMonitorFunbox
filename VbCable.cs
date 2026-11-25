@@ -84,7 +84,7 @@ static class UpdateChecker
                 Timeout = TimeSpan.FromSeconds(10),
                 MaxResponseContentBufferSize = 2 * 1024 * 1024,
             };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd($"AudioMonitor/{typeof(UpdateChecker).Assembly.GetName().Version?.ToString(3)}");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd($"SonicFunbox/{typeof(UpdateChecker).Assembly.GetName().Version?.ToString(3)}");
             return client;
         }
         catch

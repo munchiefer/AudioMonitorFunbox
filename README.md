@@ -1,4 +1,4 @@
-# AudioFunbox and AudioMonitor
+# Sonic Funbox
 
 A small Windows tray app for people who play, stream and chat at the same time.
 
@@ -18,12 +18,13 @@ Designed and crafted by **munchiefer**; programmed by **Claude** (Anthropic's AI
 | **Listen to VB-CABLE** | Lets you hear exactly what Discord hears from you. |
 | **Fun box** | Voice effects for Discord (chipmunk, radio, demon, ghost, echo, walkie-talkie and more). |
 | **Hotkeys** | One key turns the effects on/off, another plays them only while held, in any app or game. |
-| **Pedalboard** (AudioFunbox) | Guitar or bass (4/5 strings) through pedals and an amp, each with its own sound, to your speakers and Discord. |
-| **Guitar input** (AudioFunbox) | The Rocksmith Real Tone cable, an audio interface, or your PC's own jack (line-in or mic-in). |
-| **Tuner** (AudioFunbox) | Shows the note you play, plus tuning presets (E standard, Drop D, B standard, ...) with a box per string. |
+| **Pedalboard** (Sonic Funbox) | Guitar or bass (4/5 strings) through pedals and an amp, each with its own sound, to your speakers and Discord. |
+| **Guitar input** (Sonic Funbox) | The Rocksmith Real Tone cable, an audio interface, or your PC's own jack (line-in or mic-in). |
+| **Tuner** (Sonic Funbox) | Shows the note you play, plus tuning presets (E standard, Drop D, B standard, ...) with a box per string. |
 | **Device memory** | Remembers your devices, even unplugged, and picks them up again when you plug them back in. |
 
-Two editions: **AudioFunbox** (everything, for Real Tone cable players) and **AudioMonitor** (no Pedalboard).
+Two editions: **Sonic Funbox** (everything, for Real Tone cable players) and **Sonic Funbox Lite** (no Pedalboard).
+(Up to version 2.0.2 they were called AudioFunbox and AudioMonitor.)
 Free, no ads, no account, no internet needed.
 
 ## What each part does
@@ -37,7 +38,7 @@ Free, no ads, no account, no internet needed.
   "Listen to VB-CABLE" lets you hear what Discord hears.
 - **Fun box**: voice effects on that mix (Pitch, Underwater, Radio, Telephone, Demon, Ghost, Echo, Reverb,
   a walkie-talkie preset), each at a fixed, calibrated loudness, with global on/off and push-to-talk hotkeys.
-- **Pedalboard** (AudioFunbox, the edition for the Rocksmith Real Tone cable): play your guitar or 4/5-string
+- **Pedalboard** (Sonic Funbox, the edition for the Rocksmith Real Tone cable): play your guitar or 4/5-string
   bass through pedals (compressor, boost, drive, amp + cabinet, modulation, delay, reverb, safety limiter) to
   your speakers or headphones and into the mixer. Guitar and bass each keep their own sound and presets; bass
   mode keeps the low notes. A tuner shows the note you play, with tuning presets per instrument. Made for the
@@ -51,7 +52,7 @@ again within a second or two. If Windows gives a device a new ID, it's recognise
 
 ## Two editions
 
-| | AudioFunbox | AudioMonitor |
+| | Sonic Funbox | Sonic Funbox Lite |
 |---|---|---|
 | Made for | Rocksmith Real Tone cable players | everyone |
 | Speaker copy, Microphones, Fun box | yes | yes |
@@ -97,8 +98,8 @@ Needs the .NET 10 SDK.
 
 ```
 dotnet build -c Release
-dotnet publish -c Release -o out                        # AudioFunbox.exe
-dotnet publish -c Release -p:Edition=Monitor -o out     # AudioMonitor.exe
+dotnet publish -c Release -o out                        # SonicFunbox.exe
+dotnet publish -c Release -p:Edition=Monitor -o out     # SonicFunboxLite.exe
 ```
 
 Tests: `tests/mictest` compiles the app's sources with a `Test.cs`; `tests/examples` holds ready-made tests
@@ -106,15 +107,15 @@ Tests: `tests/mictest` compiles the app's sources with a `Test.cs`; `tests/examp
 
 ```
 cd tests/mictest
-dotnet run -c Release                                       # as AudioFunbox
-dotnet run -c Release -p:DefineConstants=MONITOR_EDITION    # as AudioMonitor
+dotnet run -c Release                                       # as Sonic Funbox
+dotnet run -c Release -p:DefineConstants=MONITOR_EDITION    # as Sonic Funbox Lite
 ```
 
-The installer is built with [Inno Setup 6](https://jrsoftware.org/isinfo.php) from `installer/AudioMonitorFunbox.iss`
-(after publishing both exes into `portable versions`; only `AudioMonitor.exe` is kept in git there):
+The installer is built with [Inno Setup 6](https://jrsoftware.org/isinfo.php) from `installer/SonicFunbox.iss`
+(after publishing both exes into `portable versions`; only `SonicFunboxLite.exe` is kept in git there):
 
 ```
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=2.0.2 installer\AudioMonitorFunbox.iss
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=2.0.2 installer\SonicFunbox.iss
 ```
 
 The icon (`app.ico`) is generated from `assets/icon-master.png` by `python assets/make_icon.py` (needs Pillow).
