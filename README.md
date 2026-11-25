@@ -4,6 +4,11 @@ A small Windows tray app for people who play, stream and chat at the same time.
 
 Designed and crafted by **munchiefer**; programmed by **Claude** (Anthropic's AI) under munchiefer's guidance as a non-programmer product owner. See [Credits](#credits).
 
+## How it was made
+- **Code:** written by AI.
+- **Product:** human crafted. The idea, the design and every decision are a person's.
+- **Visuals:** AI-generated for now. They are meant to become human crafted: if you would like to donate your time to make them, you will be properly credited for your work. Contact: munchiefer@gmail.com
+
 ## TL;DR
 
 | Feature | What it does, in one line |
